@@ -1,0 +1,561 @@
+import * as React from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions, ImageBackground, ActivityIndicator } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { useRoute } from '@react-navigation/native';
+import { RecipeDetailScreenRouteProp } from '../types/navigation';
+import { theme } from '../styles/theme';
+import { useRecipes, RecipeDetails } from '../hooks/useRecipes';
+import { Ingredient, Step } from '../types/models';
+
+const { width } = Dimensions.get('window');
+
+export default function RecipeDetailScreen() {
+  const route = useRoute<RecipeDetailScreenRouteProp>();
+  const { id, title } = route.params;
+  const { getRecipeDetails } = useRecipes();
+  const [recipeDetails, setRecipeDetails] = React.useState<RecipeDetails | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [activeTab, setActiveTab] = React.useState<'ingredients' | 'preparation'>('ingredients');
+
+  React.useEffect(() => {
+    async function loadRecipeDetails() {
+      setLoading(true);
+      const details = await getRecipeDetails(id);
+      setRecipeDetails(details);
+      setLoading(false);
+    }
+
+    loadRecipeDetails();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Chargement de la recette...</Text>
+      </View>
+    );
+  }
+
+  if (!recipeDetails) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>
+          Impossible de charger les détails de cette recette.
+        </Text>
+        <TouchableOpacity style={styles.retryButton}>
+          <Text style={styles.retryButtonText}>Réessayer</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const { recipe, ingredients, steps, winePairing, playlist } = recipeDetails;
+
+  return (
+    <View style={styles.container}>
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollViewContent}
+      >
+        {/* Hero Image */}
+        <View style={styles.heroContainer}>
+          <Image 
+            source={{ uri: recipe.image_url || 'https://images.unsplash.com/photo-1512058564366-18510be2db19?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80' }} 
+            style={styles.heroImage}
+          />
+          
+          <View style={styles.heroOverlay} />
+          
+          <View style={styles.heroContent}>
+            <View style={styles.countryTagContainer}>
+              <BlurView intensity={70} tint="dark" style={styles.countryTag}>
+                <Text style={styles.countryText}>{recipe.country}</Text>
+              </BlurView>
+            </View>
+            <Text style={styles.recipeTitle}>{recipe.title}</Text>
+          </View>
+        </View>
+        
+        {/* Description */}
+        <View style={styles.contentSection}>
+          <Text style={styles.description}>{recipe.description}</Text>
+        </View>
+        
+        {/* Info Cards */}
+        <View style={styles.infoCardsContainer}>
+          <BlurView intensity={20} tint="light" style={styles.infoCards}>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoValue}>{recipe.cooking_time}</Text>
+              <Text style={styles.infoLabel}>minutes</Text>
+            </View>
+            
+            <View style={styles.infoCard}>
+              <Text style={styles.infoValue}>{recipe.difficulty}</Text>
+              <Text style={styles.infoLabel}>difficulté</Text>
+            </View>
+            
+            <View style={styles.infoCard}>
+              <Text style={styles.infoValue}>{recipe.servings}</Text>
+              <Text style={styles.infoLabel}>portions</Text>
+            </View>
+          </BlurView>
+        </View>
+        
+        {/* Story Mode Button */}
+        <TouchableOpacity style={styles.storyModeButton}>
+          <BlurView intensity={80} tint="dark" style={styles.storyModeBlur}>
+            <Text style={styles.storyModeIcon}>✨</Text>
+            <Text style={styles.storyModeText}>Commencer l'expérience immersive</Text>
+          </BlurView>
+        </TouchableOpacity>
+        
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'ingredients' && styles.activeTab]}
+            onPress={() => setActiveTab('ingredients')}
+          >
+            <Text style={[styles.tabText, activeTab === 'ingredients' && styles.activeTabText]}>
+              Ingrédients
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'preparation' && styles.activeTab]}
+            onPress={() => setActiveTab('preparation')}
+          >
+            <Text style={[styles.tabText, activeTab === 'preparation' && styles.activeTabText]}>
+              Préparation
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Tab Content */}
+        <View style={styles.tabContent}>
+          {activeTab === 'ingredients' ? (
+            <View style={styles.ingredientsContainer}>
+              {ingredients.map((ingredient: Ingredient, index: number) => (
+                <View key={index} style={styles.ingredientItem}>
+                  <View style={styles.ingredientDot} />
+                  <Text style={styles.ingredient}>
+                    {ingredient.quantity ? `${ingredient.quantity} ${ingredient.unit || ''} ` : ''}
+                    {ingredient.name}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.stepsContainer}>
+              {steps.map((step: Step, index: number) => (
+                <View key={index} style={styles.step}>
+                  <View style={styles.stepNumberContainer}>
+                    <Text style={styles.stepNumber}>{step.order_number}</Text>
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>{step.title}</Text>
+                    <Text style={styles.stepDescription}>{step.description}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+        
+        {/* Wine Pairing Section */}
+        {winePairing && (
+          <View style={styles.wineSection}>
+            <Text style={styles.sectionHeader}>Accord Mets-Vin</Text>
+            <BlurView intensity={40} tint="light" style={styles.wineCard}>
+              <Image 
+                source={{ uri: winePairing.image_url || 'https://images.unsplash.com/photo-1566552881560-0be862a7c445?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }}
+                style={styles.wineImage}
+              />
+              <View style={styles.wineInfo}>
+                <Text style={styles.wineName}>{winePairing.name}</Text>
+                <Text style={styles.wineOrigin}>{winePairing.region}</Text>
+                <Text style={styles.wineDescription}>{winePairing.description}</Text>
+                {winePairing.purchase_link && (
+                  <TouchableOpacity style={styles.wineButton}>
+                    <Text style={styles.wineButtonText}>Voir ce vin</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </BlurView>
+          </View>
+        )}
+        
+        {/* Music Playlist Section */}
+        {playlist && (
+          <View style={styles.musicSection}>
+            <Text style={styles.sectionHeader}>Ambiance Musicale</Text>
+            <ImageBackground
+              source={{ uri: playlist.image_url || 'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80' }}
+              style={styles.playlistBackground}
+              imageStyle={styles.playlistBackgroundImage}
+            >
+              <BlurView intensity={80} tint="dark" style={styles.playlistCard}>
+                <Text style={styles.playlistTitle}>{playlist.title}</Text>
+                <Text style={styles.playlistDescription}>{playlist.description}</Text>
+                {playlist.spotify_link && (
+                  <TouchableOpacity style={styles.playlistButton}>
+                    <Text style={styles.playlistButtonText}>Écouter sur Spotify</Text>
+                  </TouchableOpacity>
+                )}
+              </BlurView>
+            </ImageBackground>
+          </View>
+        )}
+        
+        {/* Breathing Space at Bottom */}
+        <View style={styles.bottomSpace} />
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    paddingBottom: theme.spacing.xl,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    color: theme.colors.textMuted,
+    fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    padding: theme.spacing.lg,
+  },
+  errorText: {
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+    color: theme.colors.textMuted,
+    fontSize: 16,
+  },
+  retryButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  heroContainer: {
+    height: 350,
+    position: 'relative',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  heroContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: theme.spacing.lg,
+  },
+  countryTagContainer: {
+    alignSelf: 'flex-start',
+    marginBottom: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+    overflow: 'hidden',
+  },
+  countryTag: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.full,
+  },
+  countryText: {
+    fontSize: 14,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  recipeTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: 'white',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 5,
+  },
+  contentSection: {
+    padding: theme.spacing.lg,
+  },
+  description: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: theme.colors.text,
+    fontStyle: 'italic',
+  },
+  infoCardsContainer: {
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+  },
+  infoCards: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: theme.colors.primary + '10', // 10% opacity
+  },
+  infoCard: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  infoValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+    marginBottom: theme.spacing.xs,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+  },
+  storyModeButton: {
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.medium,
+  },
+  storyModeBlur: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: theme.colors.secondary + '80', // 50% opacity
+  },
+  storyModeIcon: {
+    fontSize: 20,
+    marginRight: theme.spacing.sm,
+  },
+  storyModeText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.card,
+    padding: 4,
+    ...theme.shadows.small,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: theme.spacing.sm,
+    alignItems: 'center',
+    borderRadius: theme.borderRadius.full,
+  },
+  activeTab: {
+    backgroundColor: theme.colors.primary,
+  },
+  tabText: {
+    fontWeight: 'bold',
+    color: theme.colors.textMuted,
+  },
+  activeTabText: {
+    color: 'white',
+  },
+  tabContent: {
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
+  },
+  ingredientsContainer: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    ...theme.shadows.small,
+  },
+  ingredientItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  ingredientDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.primary,
+    marginRight: theme.spacing.sm,
+  },
+  ingredient: {
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  stepsContainer: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    ...theme.shadows.small,
+  },
+  step: {
+    flexDirection: 'row',
+    marginBottom: theme.spacing.lg,
+  },
+  stepNumberContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.md,
+    marginTop: 3,
+    ...theme.shadows.small,
+  },
+  stepNumber: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  stepContent: {
+    flex: 1,
+  },
+  stepTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  stepDescription: {
+    fontSize: 16,
+    color: theme.colors.textMuted,
+    lineHeight: 22,
+  },
+  sectionHeader: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
+  },
+  wineSection: {
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
+  },
+  wineCard: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.primary + '10', // 10% opacity
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.medium,
+  },
+  wineImage: {
+    width: 100,
+    height: 180,
+  },
+  wineInfo: {
+    flex: 1,
+    padding: theme.spacing.md,
+  },
+  wineName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  wineOrigin: {
+    fontSize: 14,
+    color: theme.colors.primary,
+    marginBottom: theme.spacing.sm,
+  },
+  wineDescription: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    lineHeight: 20,
+    marginBottom: theme.spacing.md,
+  },
+  wineButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+    alignSelf: 'flex-start',
+  },
+  wineButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  musicSection: {
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
+  },
+  playlistBackground: {
+    height: 180,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.medium,
+  },
+  playlistBackgroundImage: {
+    borderRadius: theme.borderRadius.lg,
+  },
+  playlistCard: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+  },
+  playlistTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: theme.spacing.sm,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 5,
+  },
+  playlistDescription: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: theme.spacing.md,
+    lineHeight: 20,
+  },
+  playlistButton: {
+    backgroundColor: '#1DB954', // Couleur Spotify
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+    alignSelf: 'flex-start',
+    ...theme.shadows.small,
+  },
+  playlistButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  bottomSpace: {
+    height: theme.spacing.xl,
+  },
+}); 
