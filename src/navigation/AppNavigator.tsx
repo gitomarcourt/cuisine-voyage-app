@@ -9,7 +9,7 @@ import { BlurView } from 'expo-blur';
 import HomeScreen from '../screens/HomeScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
 // Vérifier si le WorldMapScreen existe ou est déjà importé dans le projet
-// import WorldMapScreen from '../screens/WorldMapScreen';
+import WorldMapScreen from '../screens/WorldMapScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AuthScreen from '../screens/AuthScreen';
 import TestSupabaseScreen from '../screens/TestSupabaseScreen';
@@ -106,13 +106,14 @@ export function AppNavigator() {
           headerBackTitleVisible: false,
         })}
       />
-      {/* Commenté car il semble que ce fichier n'existe pas encore
       <Stack.Screen 
         name="WorldMap" 
         component={WorldMapScreen} 
-        options={{ title: 'Explorer le monde' }}
+        options={{ 
+          title: 'Explorer le monde',
+          headerShown: false
+        }}
       />
-      */}
       <Stack.Screen 
         name="Profile" 
         component={ProfileScreen} 
