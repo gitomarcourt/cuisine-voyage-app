@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions, ImageBackground, ActivityIndicator } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { RecipeDetailScreenRouteProp } from '../types/navigation';
 import { theme } from '../styles/theme';
 import { useRecipes, RecipeDetails } from '../hooks/useRecipes';
@@ -11,6 +11,7 @@ const { width } = Dimensions.get('window');
 
 export default function RecipeDetailScreen() {
   const route = useRoute<RecipeDetailScreenRouteProp>();
+  const navigation = useNavigation<any>();
   const { id, title } = route.params;
   const { getRecipeDetails } = useRecipes();
   const [recipeDetails, setRecipeDetails] = React.useState<RecipeDetails | null>(null);
@@ -27,6 +28,11 @@ export default function RecipeDetailScreen() {
 
     loadRecipeDetails();
   }, [id]);
+
+  // Navigation vers l'expérience immersive
+  const startStoryMode = () => {
+    navigation.navigate('StoryMode', { id, title });
+  };
 
   if (loading) {
     return (
@@ -51,6 +57,9 @@ export default function RecipeDetailScreen() {
   }
 
   const { recipe, ingredients, steps, winePairing, playlist } = recipeDetails;
+  
+  // Vérifier si on peut activer le mode immersif
+  const hasStoryMode = recipe.story_intro && recipe.story_intro.length > 0;
 
   return (
     <View style={styles.container}>
@@ -103,13 +112,15 @@ export default function RecipeDetailScreen() {
           </BlurView>
         </View>
         
-        {/* Story Mode Button */}
-        <TouchableOpacity style={styles.storyModeButton}>
-          <BlurView intensity={80} tint="dark" style={styles.storyModeBlur}>
-            <Text style={styles.storyModeIcon}>✨</Text>
-            <Text style={styles.storyModeText}>Commencer l'expérience immersive</Text>
-          </BlurView>
-        </TouchableOpacity>
+        {/* Story Mode Button - Only show if story content is available */}
+        {hasStoryMode && (
+          <TouchableOpacity style={styles.storyModeButton} onPress={startStoryMode}>
+            <BlurView intensity={80} tint="dark" style={styles.storyModeBlur}>
+              <Text style={styles.storyModeIcon}>✨</Text>
+              <Text style={styles.storyModeText}>Commencer l'expérience immersive</Text>
+            </BlurView>
+          </TouchableOpacity>
+        )}
         
         {/* Tabs */}
         <View style={styles.tabsContainer}>

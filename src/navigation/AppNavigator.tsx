@@ -8,10 +8,12 @@ import { BlurView } from 'expo-blur';
 
 import HomeScreen from '../screens/HomeScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
-import WorldMapScreen from '../screens/WorldMapScreen';
+// Vérifier si le WorldMapScreen existe ou est déjà importé dans le projet
+// import WorldMapScreen from '../screens/WorldMapScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AuthScreen from '../screens/AuthScreen';
 import TestSupabaseScreen from '../screens/TestSupabaseScreen';
+import StoryModeScreen from '../screens/StoryModeScreen';
 // Autres imports de screens
 
 // Définition du type pour les paramètres de navigation
@@ -22,6 +24,7 @@ export type RootStackParamList = {
   Profile: undefined;
   Auth: undefined;
   TestSupabase: undefined;
+  StoryMode: { id: number, title: string };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -103,11 +106,13 @@ export function AppNavigator() {
           headerBackTitleVisible: false,
         })}
       />
+      {/* Commenté car il semble que ce fichier n'existe pas encore
       <Stack.Screen 
         name="WorldMap" 
         component={WorldMapScreen} 
         options={{ title: 'Explorer le monde' }}
       />
+      */}
       <Stack.Screen 
         name="Profile" 
         component={ProfileScreen} 
@@ -125,6 +130,14 @@ export function AppNavigator() {
         name="TestSupabase" 
         component={TestSupabaseScreen} 
         options={{ title: 'Test Supabase' }}
+      />
+      <Stack.Screen 
+        name="StoryMode" 
+        component={StoryModeScreen} 
+        options={{ 
+          headerShown: false, // Cacher l'en-tête pour une expérience plus immersive
+          // La propriété 'presentation' n'est pas disponible dans cette version
+        }}
       />
       {/* Autres écrans */}
     </Stack.Navigator>

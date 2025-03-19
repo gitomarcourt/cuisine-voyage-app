@@ -45,6 +45,7 @@ export function useRecipes() {
           instructions: recipe.instructions,
           created_at: recipe.created_at,
           updated_at: recipe.updated_at,
+          servings: recipe.servings || 4,
           // Propriétés additionnelles pour la compatibilité avec les composants existants
           imageSource: { uri: recipe.image_url },
           cookingTime: recipe.cooking_time,
@@ -65,6 +66,8 @@ export function useRecipes() {
 
   async function getRecipeDetails(id: number): Promise<RecipeDetails | null> {
     try {
+      console.log('Récupération des détails de la recette ID:', id);
+      
       // Récupérer les détails de la recette
       const { data: recipeData, error: recipeError } = await supabase
         .from('recipes')
@@ -75,6 +78,9 @@ export function useRecipes() {
       if (recipeError || !recipeData) {
         throw recipeError || new Error('Recette non trouvée');
       }
+
+      console.log('Données de recette récupérées:', JSON.stringify(recipeData));
+      console.log('story_intro présent:', !!recipeData.story_intro);
 
       // Récupérer les ingrédients
       const { data: ingredientsData, error: ingredientsError } = await supabase
@@ -93,6 +99,8 @@ export function useRecipes() {
         .order('order_number');
 
       if (stepsError) throw stepsError;
+
+      console.log('Étapes récupérées, nombre:', stepsData?.length || 0);
 
       // Récupérer le vin assorti
       const { data: winePairingData, error: winePairingError } = await supabase
@@ -123,13 +131,17 @@ export function useRecipes() {
         }
       }
 
-      return {
+      const details = {
         recipe: recipeData,
         ingredients: ingredientsData || [],
         steps: stepsData || [],
         winePairing: winePairingData || undefined,
         playlist: playlist,
       };
+
+      console.log('Retour des détails de la recette avec story_intro:', !!details.recipe.story_intro);
+      
+      return details;
     } catch (err) {
       console.error('Error fetching recipe details:', err);
       return null;
