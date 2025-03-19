@@ -8,7 +8,7 @@ import { useRecipes } from '../hooks/useRecipes';
 import { useCategories } from '../hooks/useCategories';
 import { useInspirations } from '../hooks/useInspirations';
 import { Recipe } from '../types/models';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -128,61 +128,51 @@ export default function HomeScreen() {
         )}
         scrollEventThrottle={16}
       >
-        {/* En-tête avec image d'arrière-plan et effet parallaxe */}
-        <Animated.View
-          style={[
-            styles.headerContainer,
-            {
-              transform: [
-                { translateY: headerTranslateY },
-                { scale: headerScale }
-              ],
-              opacity: headerOpacity,
-            }
-          ]}
-        >
-          <ImageBackground
-            source={{ uri: 'https://images.unsplash.com/photo-1514986888952-8cd320577b68?q=80&w=1476&auto=format&fit=crop' }}
-            style={styles.headerBackground}
-          >
-            <LinearGradient
-              colors={['rgba(139, 90, 43, 0.3)', 'rgba(139, 90, 43, 0.8)']}
-              style={StyleSheet.absoluteFill}
-            />
-            <BlurView intensity={10} tint="dark" style={styles.headerBlur}>
-              <View style={styles.header}>
-                <View>
-                  <Text style={styles.welcomeText}>Bienvenue sur</Text>
-                  <Animated.Text style={[styles.appName, {
-                    opacity: fadeAnim,
-                    transform: [{ translateY: fadeAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0]
-                    })}]
-                  }]}>Savorista</Animated.Text>
-                  <Text style={styles.tagline}>Voyagez par les saveurs</Text>
-                </View>
-                
-                <TouchableOpacity 
-                  style={styles.mapButton}
-                  onPress={() => navigation.navigate('WorldMap')}
-                >
-                  <BlurView intensity={40} tint="light" style={styles.mapButtonBlur}>
-                    <Ionicons name="map-outline" size={24} color={theme.colors.primary} />
-                    <Text style={styles.mapButtonText}>Explorer</Text>
-                  </BlurView>
-                </TouchableOpacity>
-              </View>
-            </BlurView>
-          </ImageBackground>
-        </Animated.View>
+        {/* En-tête avec image d'arrière-plan */}
+        <View style={styles.headerWrapper}>
+          <View style={styles.simpleHeader}>
+            <View style={styles.titleWrapper}>
+              <Text style={styles.simpleAppName}>Savorista</Text>
+              <LinearGradient
+                colors={[theme.colors.primary, theme.colors.accent]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.titleUnderline}
+              />
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.simpleMapButton}
+              onPress={() => navigation.navigate('WorldMap')}
+            >
+              <LinearGradient
+                colors={[theme.colors.primary, theme.colors.accent]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientButton}
+              >
+                <Ionicons name="compass-outline" size={20} color="white" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
 
-        {/* Phrase d'accroche */}
-        <BlurView intensity={10} tint="light" style={styles.taglineContainer}>
-          <Text style={styles.taglineQuote}>
-            "La cuisine est le reflet de l'âme d'un pays et le passeport de sa culture"
-          </Text>
-        </BlurView>
+          <View style={styles.bannerContainer}>
+            <Image
+              source={{ uri: 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?q=80&w=1470&auto=format&fit=crop' }}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
+            <View style={styles.bannerOverlay}>
+              <Text style={styles.bannerText}>Voyagez par les saveurs</Text>
+            </View>
+          </View>
+          
+          <View style={styles.insightContainer}>
+            <Text style={styles.insightText}>
+              "La cuisine est le reflet de l'âme d'un pays"
+            </Text>
+          </View>
+        </View>
 
         {/* Catégories culinaires */}
         <Animated.View 
@@ -363,78 +353,86 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  headerContainer: {
-    height: 260,
-    width: '100%',
+  headerWrapper: {
+    marginBottom: theme.spacing.lg,
+    backgroundColor: theme.colors.background,
   },
-  headerBackground: {
+  simpleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: (StatusBar.currentHeight || 0) + theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+  },
+  titleWrapper: {
+    alignItems: 'flex-start',
+  },
+  simpleAppName: {
+    fontSize: 26,
+    fontWeight: 'bold' as const,
+    color: theme.colors.text,
+    marginBottom: 4,
+    fontFamily: 'System',
+  },
+  titleUnderline: {
+    height: 3,
+    width: 50,
+    borderRadius: 2,
+  },
+  simpleMapButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    ...theme.shadows.small,
+  },
+  gradientButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bannerContainer: {
+    height: 180,
+    marginTop: theme.spacing.sm,
+    marginHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    overflow: 'hidden',
+    ...theme.shadows.medium,
+  },
+  bannerImage: {
     width: '100%',
     height: '100%',
   },
-  headerBlur: {
-    flex: 1,
-    paddingTop: StatusBar.currentHeight || 0,
-  },
-  header: {
-    flex: 1,
-    padding: theme.spacing.lg,
-    paddingTop: (StatusBar.currentHeight || 0) + theme.spacing.lg,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  bannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(58, 39, 27, 0.4)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  welcomeText: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 4,
-    fontFamily: 'System',
-    fontWeight: 'normal' as const,
-  },
-  appName: {
-    fontSize: 32,
+  bannerText: {
     color: 'white',
-    marginBottom: 8,
-    fontFamily: 'System',
+    fontSize: 22,
     fontWeight: 'bold' as const,
-  },
-  tagline: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: 'System',
-    fontWeight: 'normal' as const,
-  },
-  taglineContainer: {
-    margin: theme.spacing.lg,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: 'rgba(255, 248, 231, 0.7)',
-    ...theme.shadows.small,
-  },
-  taglineQuote: {
-    fontSize: 16,
-    color: theme.colors.textLight,
-    fontStyle: 'italic',
     textAlign: 'center',
-    fontFamily: 'System',
-    fontWeight: 'normal' as const,
+    paddingHorizontal: theme.spacing.lg,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
-  mapButton: {
-    borderRadius: theme.borderRadius.full,
-    overflow: 'hidden',
-  },
-  mapButtonBlur: {
-    flexDirection: 'row',
+  insightContainer: {
+    marginTop: theme.spacing.md,
+    marginHorizontal: theme.spacing.xl,
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
   },
-  mapButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: theme.colors.primary,
-    marginLeft: 6,
+  insightText: {
+    fontSize: 15,
+    fontStyle: 'italic',
+    color: theme.colors.textLight,
     fontFamily: 'System',
+    fontWeight: '500' as const,
+    textAlign: 'center',
   },
   sectionContainer: {
     padding: theme.spacing.lg,
