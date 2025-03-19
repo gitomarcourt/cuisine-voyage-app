@@ -36,57 +36,21 @@ interface Region {
   iconName?: string;
 }
 
-// Données initiales des régions avec coordonnées géographiques
-const INITIAL_REGIONS: Region[] = [
-  {
-    id: 1,
-    name: 'Provence',
-    country: 'France',
-    coords: { latitude: 43.5283, longitude: 5.4497 }, // Aix-en-Provence
-    recipeId: 3,
-    iconName: 'utensils'
-  },
-  {
-    id: 2,
-    name: 'Toscane',
-    country: 'Italie',
-    coords: { latitude: 43.7711, longitude: 11.2486 }, // Florence
-    recipeId: 1,
-    iconName: 'ice-cream'
-  },
-  {
-    id: 3,
-    name: 'Andalousie',
-    country: 'Espagne',
-    coords: { latitude: 37.3891, longitude: -5.9845 }, // Séville
-    recipeId: 4,
-    iconName: 'fish'
-  },
-  {
-    id: 4,
-    name: 'Marrakech',
-    country: 'Maroc',
-    coords: { latitude: 31.6295, longitude: -7.9811 }, // Marrakech
-    recipeId: 2,
-    iconName: 'mortar-pestle'
-  },
-  {
-    id: 5,
-    name: 'Dakar',
-    country: 'Sénégal',
-    coords: { latitude: 14.7167, longitude: -17.4677 }, // Dakar
-    recipeId: 5,
-    iconName: 'drumstick-bite'
-  }
-];
-
-// Images de secours pour les recettes
-const FALLBACK_IMAGES = {
-  1: 'https://images.unsplash.com/photo-1471253387723-35c53c9f97ca', // Tiramisu
-  2: 'https://images.unsplash.com/photo-1647974398528-9e186dfc96b6', // Tajine
-  3: 'https://images.unsplash.com/photo-1595295333158-4742f28fbd85', // Ratatouille
-  4: 'https://images.unsplash.com/photo-1534080564583-6be75777b70a', // Paella
-  5: 'https://images.unsplash.com/photo-1548340748-6d98e4ee1653'  // Poulet Yassa
+// Icônes par défaut pour certains pays (utilisé uniquement si la recette n'a pas d'icône spécifiée)
+const COUNTRY_ICONS: Record<string, string> = {
+  'France': 'wine-glass',
+  'Italie': 'pizza-slice',
+  'Espagne': 'fish',
+  'Maroc': 'mortar-pestle',
+  'Sénégal': 'drumstick-bite',
+  'Japon': 'fish',
+  'Chine': 'utensils',
+  'Thaïlande': 'pepper-hot',
+  'Inde': 'pepper-hot',
+  'Grèce': 'cheese',
+  'Liban': 'utensils',
+  'Mexique': 'pepper-hot',
+  'États-Unis': 'hamburger'
 };
 
 // Style de carte personnalisé dans le thème de l'application
@@ -270,17 +234,17 @@ const mapStyle = [
 ];
 
 export default function WorldMapScreen() {
-  const [regions, setRegions] = useState<Region[]>(INITIAL_REGIONS);
+  const [regions, setRegions] = useState<Region[]>([]);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [isRecipeReady, setIsRecipeReady] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(height)).current;
   const mapRef = useRef<MapView | null>(null);
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const [selectedMarkerId, setSelectedMarkerId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchRecipes();
@@ -318,20 +282,7 @@ export default function WorldMapScreen() {
     try {
       console.log('Chargement des recettes depuis Supabase...');
       
-      // Récupérer d'abord une recette pour voir les colonnes disponibles
-      const { data: recipeColumns, error: columnsError } = await supabase
-        .from('recipes')
-        .select('*')
-        .limit(1)
-        .single();
-      
-      if (columnsError) {
-        console.error('Erreur lors de la vérification des colonnes:', columnsError);
-      } else {
-        console.log('Colonnes disponibles dans la table recipes:', Object.keys(recipeColumns));
-      }
-      
-      // Ensuite charger toutes les recettes avec les bonnes colonnes
+      // Récupérer toutes les recettes avec les bonnes colonnes
       const { data: recipes, error } = await supabase
         .from('recipes')
         .select('*')
@@ -345,35 +296,42 @@ export default function WorldMapScreen() {
       console.log('Recettes chargées:', recipes ? recipes.length : 0);
       
       if (recipes && recipes.length > 0) {
-        // Créer un tableau temporaire
-        const updatedRegions: Region[] = [];
+        // Filtrer les recettes qui ont des coordonnées (latitude & longitude)
+        const recipesWithCoordinates = recipes.filter(recipe => 
+          recipe.latitude && recipe.longitude
+        );
         
-        // Parcourir les régions initiales et ne garder que celles avec des recettes
-        for (const region of INITIAL_REGIONS) {
-          const matchingRecipe = recipes.find(recipe => recipe.id === region.recipeId);
-          
-          if (matchingRecipe) {
-            console.log(`Recette trouvée pour ${region.name}:`, matchingRecipe);
-            
-            // Déterminer les bons noms de colonnes en fonction des données disponibles
-            const imageUrl = matchingRecipe.image_url || matchingRecipe.image || null;
-            
-            // Ajouter la région avec sa recette
-            updatedRegions.push({
-              ...region,
-              recipeTitle: matchingRecipe.title,
-              description: matchingRecipe.description || 
-                'Description à venir pour cette délicieuse recette traditionnelle. Explorez les saveurs uniques de cette région culinaire.',
-              image: imageUrl || FALLBACK_IMAGES[region.recipeId as keyof typeof FALLBACK_IMAGES]
-            });
-          } else {
-            console.log(`Aucune recette trouvée pour ${region.name}, ID: ${region.recipeId}`);
-            // Ne pas ajouter les régions sans recette
-          }
+        if (recipesWithCoordinates.length === 0) {
+          console.warn('Aucune recette avec des coordonnées trouvée. Veuillez mettre à jour vos recettes.');
+          setRegions([]);
+          setLoading(false);
+          return;
         }
         
-        console.log(`${updatedRegions.length} régions avec recettes affichées sur la carte`);
-        setRegions(updatedRegions);
+        // Convertir les recettes en régions pour l'affichage sur la carte
+        const recipesAsRegions: Region[] = recipesWithCoordinates.map(recipe => {
+          // Obtenir l'icône en fonction du pays
+          const iconName = COUNTRY_ICONS[recipe.country] || 'utensils';
+          
+          // Créer l'objet région basé sur la recette
+          return {
+            id: recipe.id,
+            name: recipe.region || recipe.country,
+            country: recipe.country,
+            coords: {
+              latitude: parseFloat(recipe.latitude),
+              longitude: parseFloat(recipe.longitude)
+            },
+            recipeId: recipe.id,
+            recipeTitle: recipe.title,
+            description: recipe.description,
+            image: recipe.image_url || null,
+            iconName: iconName
+          };
+        });
+        
+        console.log(`${recipesAsRegions.length} régions générées depuis les recettes`);
+        setRegions(recipesAsRegions);
       } else {
         // Si aucune recette n'est trouvée, afficher une liste vide
         setRegions([]);

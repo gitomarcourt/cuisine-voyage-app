@@ -2,6 +2,7 @@ export interface Recipe {
   id: number;
   title: string;
   country: string;
+  region?: string;
   description: string;
   image_url: string;
   cooking_time: number;
@@ -22,6 +23,10 @@ export interface Recipe {
   // Propriétés pour l'expérience immersive
   story_intro?: string;
   story_intro_audio_url?: string;
+  
+  // Coordonnées géographiques
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Ingredient {

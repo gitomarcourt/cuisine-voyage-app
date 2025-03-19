@@ -21,6 +21,8 @@ create table recipes (
   image_url text,
   story_intro text,
   story_intro_audio_url text,
+  latitude numeric,
+  longitude numeric,
   created_at timestamp with time zone default now(),
   category_id bigint REFERENCES categories(id)
 );
