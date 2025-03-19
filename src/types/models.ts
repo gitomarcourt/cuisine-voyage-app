@@ -2,23 +2,45 @@ export interface Recipe {
   id: number;
   title: string;
   country: string;
-  region?: string;
   description: string;
-  preparation_time: number;
+  image_url: string;
   cooking_time: number;
   difficulty: string;
-  servings: number;
   is_premium: boolean;
-  image_url?: string;
-  created_at: string;
+  category_id?: number;
+  ingredients?: any[];
+  instructions?: any[];
+  created_at?: string;
+  updated_at?: string;
+  
+  // Propriétés pour la compatibilité
+  imageSource?: { uri: string };
+  cookingTime?: number;
+  isPremium?: boolean;
 }
 
 export interface Ingredient {
-  id: number;
-  recipe_id: number;
   name: string;
-  quantity?: string;
-  unit?: string;
+  quantity: string;
+}
+
+export interface Instruction {
+  step: number;
+  description: string;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  icon: string;
+  created_at?: string;
+}
+
+export interface Inspiration {
+  id: number;
+  title: string;
+  image_url: string;
+  created_at?: string;
 }
 
 export interface Step {

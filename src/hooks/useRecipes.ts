@@ -19,18 +19,41 @@ export function useRecipes() {
     async function fetchRecipes() {
       try {
         setLoading(true);
+        
+        // Récupérer les recettes depuis Supabase
         const { data, error } = await supabase
           .from('recipes')
           .select('*')
           .order('created_at', { ascending: false });
-
+          
         if (error) {
           throw error;
         }
-
-        setRecipes(data || []);
+        
+        // Transformer les données pour correspondre à notre modèle
+        const formattedRecipes: Recipe[] = data.map(recipe => ({
+          id: recipe.id,
+          title: recipe.title,
+          country: recipe.country,
+          description: recipe.description,
+          image_url: recipe.image_url,
+          cooking_time: recipe.cooking_time,
+          difficulty: recipe.difficulty,
+          is_premium: recipe.is_premium,
+          category_id: recipe.category_id,
+          ingredients: recipe.ingredients,
+          instructions: recipe.instructions,
+          created_at: recipe.created_at,
+          updated_at: recipe.updated_at,
+          // Propriétés additionnelles pour la compatibilité avec les composants existants
+          imageSource: { uri: recipe.image_url },
+          cookingTime: recipe.cooking_time,
+          isPremium: recipe.is_premium
+        }));
+        
+        setRecipes(formattedRecipes);
       } catch (err) {
-        console.error('Error fetching recipes:', err);
+        console.error('Erreur lors de la récupération des recettes:', err);
         setError(err instanceof Error ? err.message : 'Une erreur est survenue');
       } finally {
         setLoading(false);

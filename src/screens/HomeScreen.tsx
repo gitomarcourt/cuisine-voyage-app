@@ -3,9 +3,10 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ImageBackg
 import { useNavigation } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import RecipeCard from '../components/RecipeCard';
-import { HomeScreenNavigationProp } from '../types/navigation';
 import { theme } from '../styles/theme';
 import { useRecipes } from '../hooks/useRecipes';
+import { useCategories } from '../hooks/useCategories';
+import { useInspirations } from '../hooks/useInspirations';
 import { Recipe } from '../types/models';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -51,11 +52,11 @@ const featuredRecipes = [
 ];
 
 const categories = [
-  { id: 1, name: 'Asiatique', icon: 'noodles' as any, count: 24 },
-  { id: 2, name: 'Méditerranéen', icon: 'food-drumstick' as any, count: 18 },
-  { id: 3, name: 'Africain', icon: 'pot-steam' as any, count: 12 },
-  { id: 4, name: 'Latino', icon: 'taco' as any, count: 16 },
-  { id: 5, name: 'Européen', icon: 'pasta' as any, count: 22 },
+  { id: 1, name: 'Asiatique', icon: 'noodles' as any },
+  { id: 2, name: 'Méditerranéen', icon: 'food-drumstick' as any },
+  { id: 3, name: 'Africain', icon: 'pot-steam' as any },
+  { id: 4, name: 'Latino', icon: 'taco' as any },
+  { id: 5, name: 'Européen', icon: 'pasta' as any },
 ];
 
 // Données pour la section inspiration
@@ -79,7 +80,10 @@ const inspirations = [
 
 export default function HomeScreen() {
   const navigation = useNavigation<HomeScreenNavigationProp>();
-  const { recipes, loading, error } = useRecipes();
+  const { recipes, loading: loadingRecipes, error: recipesError } = useRecipes();
+  const { categories, loading: loadingCategories, error: categoriesError } = useCategories();
+  const { inspirations, loading: loadingInspirations, error: inspirationsError } = useInspirations();
+  
   const scrollY = React.useRef(new Animated.Value(0)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   
@@ -192,34 +196,37 @@ export default function HomeScreen() {
         >
           <Text style={styles.sectionTitle}>Cuisines du monde</Text>
           
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesContainer}
-            decelerationRate="fast"
-            snapToInterval={width * 0.4}
-            snapToAlignment="center"
-          >
-            {categories.map(category => (
-              <TouchableOpacity 
-                key={category.id} 
-                style={styles.categoryItem}
-                onPress={() => {/* Navigation à implémenter */}}
-              >
-                <BlurView intensity={30} tint="light" style={styles.categoryBlur}>
-                  <MaterialCommunityIcons 
-                    name={category.icon} 
-                    size={28} 
-                    color={theme.colors.primary} 
-                  />
-                  <Text style={styles.categoryName}>{category.name}</Text>
-                  <View style={styles.recipeBadge}>
-                    <Text style={styles.recipeCount}>{category.count}</Text>
-                  </View>
-                </BlurView>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {loadingCategories ? (
+            <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginVertical: 20 }} />
+          ) : categoriesError ? (
+            <Text style={styles.errorText}>Impossible de charger les catégories</Text>
+          ) : (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesContainer}
+              decelerationRate="fast"
+              snapToInterval={width * 0.4}
+              snapToAlignment="center"
+            >
+              {categories.map(category => (
+                <TouchableOpacity 
+                  key={category.id} 
+                  style={styles.categoryItem}
+                  onPress={() => {/* Navigation à implémenter */}}
+                >
+                  <BlurView intensity={30} tint="light" style={styles.categoryBlur}>
+                    <MaterialCommunityIcons 
+                      name={category.icon as any} 
+                      size={28} 
+                      color={theme.colors.primary} 
+                    />
+                    <Text style={styles.categoryName}>{category.name}</Text>
+                  </BlurView>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </Animated.View>
 
         {/* Recettes en vedette */}
@@ -231,34 +238,50 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           
-          <View style={styles.featuredContainer}>
-            {featuredRecipes.map((recipe, index) => (
-              <Animated.View 
-                key={recipe.id}
-                style={{
-                  opacity: fadeAnim,
-                  transform: [{ translateY: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50 + (index * 20), 0]
-                  })}]
-                }}
-              >
-                <RecipeCard
-                  title={recipe.title}
-                  country={recipe.country}
-                  description={recipe.description}
-                  imageSource={recipe.imageSource}
-                  cookingTime={recipe.cookingTime}
-                  difficulty={recipe.difficulty}
-                  isPremium={recipe.isPremium}
-                  onPress={() => navigation.navigate('RecipeDetail', { 
-                    id: recipe.id,
-                    title: recipe.title
-                  })}
-                />
-              </Animated.View>
-            ))}
-          </View>
+          {loadingRecipes ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={styles.loadingText}>Chargement des recettes...</Text>
+            </View>
+          ) : recipesError ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle-outline" size={40} color={theme.colors.primary} />
+              <Text style={styles.errorText}>Impossible de charger les recettes</Text>
+            </View>
+          ) : recipes.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Aucune recette disponible pour le moment</Text>
+            </View>
+          ) : (
+            <View style={styles.featuredContainer}>
+              {recipes.slice(0, 3).map((recipe, index) => (
+                <Animated.View 
+                  key={recipe.id}
+                  style={{
+                    opacity: fadeAnim,
+                    transform: [{ translateY: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [50 + (index * 20), 0]
+                    })}]
+                  }}
+                >
+                  <RecipeCard
+                    title={recipe.title}
+                    country={recipe.country}
+                    description={recipe.description}
+                    imageSource={{ uri: recipe.image_url }}
+                    cookingTime={recipe.cooking_time}
+                    difficulty={recipe.difficulty}
+                    isPremium={recipe.is_premium}
+                    onPress={() => navigation.navigate('RecipeDetail', { 
+                      id: recipe.id,
+                      title: recipe.title
+                    })}
+                  />
+                </Animated.View>
+              ))}
+            </View>
+          )}
         </View>
         
         {/* Inspirations culinaires */}
@@ -270,32 +293,38 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.inspirationsContainer}
-            decelerationRate="fast"
-            snapToInterval={width * 0.8}
-            snapToAlignment="center"
-          >
-            {inspirations.map(item => (
-              <TouchableOpacity key={item.id} style={styles.inspirationCard}>
-                <ImageBackground 
-                  source={{ uri: item.image }}
-                  style={styles.inspirationImage}
-                  imageStyle={{ borderRadius: theme.borderRadius.lg }}
-                >
-                  <BlurView intensity={30} tint="dark" style={styles.inspirationOverlay}>
-                    <Text style={styles.inspirationTitle}>{item.title}</Text>
-                    <View style={styles.inspirationButton}>
-                      <Text style={styles.inspirationButtonText}>Explorer</Text>
-                      <Ionicons name="arrow-forward" size={16} color="#FFF" />
-                    </View>
-                  </BlurView>
-                </ImageBackground>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {loadingInspirations ? (
+            <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginVertical: 20 }} />
+          ) : inspirationsError ? (
+            <Text style={styles.errorText}>Impossible de charger les inspirations</Text>
+          ) : (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.inspirationsContainer}
+              decelerationRate="fast"
+              snapToInterval={width * 0.8}
+              snapToAlignment="center"
+            >
+              {inspirations.map(item => (
+                <TouchableOpacity key={item.id} style={styles.inspirationCard}>
+                  <ImageBackground 
+                    source={{ uri: item.image_url }}
+                    style={styles.inspirationImage}
+                    imageStyle={{ borderRadius: theme.borderRadius.lg }}
+                  >
+                    <BlurView intensity={30} tint="dark" style={styles.inspirationOverlay}>
+                      <Text style={styles.inspirationTitle}>{item.title}</Text>
+                      <View style={styles.inspirationButton}>
+                        <Text style={styles.inspirationButtonText}>Explorer</Text>
+                        <Ionicons name="arrow-forward" size={16} color="#FFF" />
+                      </View>
+                    </BlurView>
+                  </ImageBackground>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
         
         {/* Bannière découverte */}
@@ -453,23 +482,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontFamily: 'System',
   },
-  recipeBadge: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: theme.colors.primary,
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  recipeCount: {
-    fontSize: 12,
-    fontWeight: 'bold' as const,
-    color: 'white',
-    fontFamily: 'System',
-  },
   featuredContainer: {
     alignItems: 'center',
   },
@@ -568,5 +580,42 @@ const styles = StyleSheet.create({
     color: 'white',
     marginRight: 4,
     fontFamily: 'System',
+  },
+  loadingContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    color: theme.colors.textLight,
+    fontSize: 16,
+    fontFamily: 'System',
+    fontWeight: 'normal' as const,
+  },
+  errorContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    marginTop: theme.spacing.md,
+    color: theme.colors.danger,
+    fontSize: 16,
+    fontFamily: 'System',
+    fontWeight: 'normal' as const,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    color: theme.colors.textLight,
+    fontSize: 16,
+    fontFamily: 'System',
+    fontWeight: 'normal' as const,
+    textAlign: 'center',
   },
 });
