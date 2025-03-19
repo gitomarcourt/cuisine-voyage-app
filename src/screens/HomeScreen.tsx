@@ -12,6 +12,7 @@ import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -87,6 +88,9 @@ export default function HomeScreen() {
   const scrollY = React.useRef(new Animated.Value(0)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   
+  // Récupérer les insets de la zone de sécurité
+  const insets = useSafeAreaInsets();
+  
   React.useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -117,7 +121,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
       
       <Animated.ScrollView 
         showsVerticalScrollIndicator={false}
@@ -130,7 +134,10 @@ export default function HomeScreen() {
       >
         {/* En-tête avec image d'arrière-plan */}
         <View style={styles.headerWrapper}>
-          <View style={styles.simpleHeader}>
+          <View style={[
+            styles.simpleHeader,
+            { paddingTop: insets.top || StatusBar.currentHeight || 20 }
+          ]}>
             <View style={styles.titleWrapper}>
               <Text style={styles.simpleAppName}>Savorista</Text>
               <LinearGradient
@@ -362,7 +369,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: (StatusBar.currentHeight || 0) + theme.spacing.md,
     paddingBottom: theme.spacing.md,
   },
   titleWrapper: {
