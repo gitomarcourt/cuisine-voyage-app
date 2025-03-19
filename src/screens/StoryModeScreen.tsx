@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, 
-  ScrollView, Animated, Dimensions, 
+  Animated, PanResponder, Dimensions, 
   ActivityIndicator, SafeAreaView, Platform, ImageBackground
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -15,6 +15,7 @@ import { Step } from '../types/models';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
+const SWIPE_THRESHOLD = width * 0.25;
 
 export default function StoryModeScreen() {
   const route = useRoute<any>();
@@ -29,12 +30,22 @@ export default function StoryModeScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [storyIntro, setStoryIntro] = useState('');
   const [showInstruction, setShowInstruction] = useState(false);
-  
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [swipeBlocked, setSwipeBlocked] = useState(false);
   
   // Combiner les étapes et l'intro
   const allSteps = useRef<(Step | { isIntro: boolean; title: string; content: string })[]>([]).current;
+  
+  // Références pour les animations et le panResponder
+  const cardRef = useRef<View>(null);
+  const positionRef = useRef(new Animated.ValueXY()).current;
+  const opacityRef = useRef(new Animated.Value(1)).current;
+  const [isAnimating, setIsAnimating] = useState(false);
+  
+  // Reset les positions et reconstruire le panResponder quand currentIndex change
+  useEffect(() => {
+    positionRef.setValue({ x: 0, y: 0 });
+    opacityRef.setValue(1);
+  }, [currentIndex]);
   
   // Charge les détails de la recette
   useEffect(() => {
@@ -89,60 +100,185 @@ export default function StoryModeScreen() {
     loadStoryDetails();
   }, [id]);
   
-  // Fonctions pour naviguer entre les étapes
-  const goToNextStep = () => {
-    if (currentIndex >= allSteps.length - 1) return;
-    
-    // Animation simple
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: true
-    }).start(() => {
-      setCurrentIndex(prev => prev + 1);
+  // Animations et PanResponder
+  const rotate = positionRef.x.interpolate({
+    inputRange: [-width / 2, 0, width / 2],
+    outputRange: ['-7deg', '0deg', '7deg'],
+    extrapolate: 'clamp',
+  });
+  
+  const rotateAndTranslate = {
+    transform: [
+      { rotate },
+      ...positionRef.getTranslateTransform(),
+    ],
+  };
+  
+  const swipeLeftOpacity = positionRef.x.interpolate({
+    inputRange: [-width / 4, 0, width / 4],
+    outputRange: [1, 0, 0],
+    extrapolate: 'clamp',
+  });
+  
+  const swipeRightOpacity = positionRef.x.interpolate({
+    inputRange: [-width / 4, 0, width / 4],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+  
+  // Recréer le panResponder à chaque rendu pour qu'il utilise les valeurs à jour de currentIndex
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => !isAnimating,
+    onMoveShouldSetPanResponder: () => !isAnimating,
+    onPanResponderGrant: () => {
+      // Rien à faire au début du geste
+    },
+    onPanResponderMove: (_, gestureState) => {
+      if (isAnimating) return;
+      positionRef.setValue({ x: gestureState.dx, y: 0 });
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (isAnimating) return;
       
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true
+      // Si le swipe est suffisamment important
+      if (gestureState.dx > SWIPE_THRESHOLD && currentIndex > 0) {
+        handleSwipe('left');
+      } else if (gestureState.dx < -SWIPE_THRESHOLD && currentIndex < allSteps.length - 1) {
+        handleSwipe('right');
+      } else {
+        // Retour à la position initiale
+        Animated.spring(positionRef, {
+          toValue: { x: 0, y: 0 },
+          friction: 5,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+    onPanResponderTerminate: () => {
+      // Si le geste est interrompu, retour à la position initiale
+      Animated.spring(positionRef, {
+        toValue: { x: 0, y: 0 },
+        friction: 5,
+        useNativeDriver: true,
       }).start();
+    }
+  });
+  
+  // Fonction de déblocage d'urgence
+  const resetSwipeState = () => {
+    // Réinitialise complètement l'état des animations
+    positionRef.setValue({ x: 0, y: 0 });
+    opacityRef.setValue(1);
+    setIsAnimating(false);
+    setSwipeBlocked(false);
+    console.log("État de swipe réinitialisé");
+  };
+
+  // Surveille si l'animation reste bloquée
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    if (isAnimating) {
+      // Si l'animation reste active plus de 2 secondes, on force une réinitialisation
+      timeoutId = setTimeout(() => {
+        console.log("Animation bloquée détectée, réinitialisation forcée");
+        resetSwipeState();
+      }, 2000);
+    }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [isAnimating]);
+
+  // Double-clic sur la carte pour débloquer
+  const handleCardPress = () => {
+    if (swipeBlocked || isAnimating) {
+      resetSwipeState();
+    }
+  };
+  
+  const handleSwipe = (direction: 'left' | 'right') => {
+    if (isAnimating || swipeBlocked) {
+      console.log("Tentative de swipe ignorée - animation en cours ou swipe bloqué");
+      return;
+    }
+    
+    console.log(`Swipe ${direction} initié, de l'étape ${currentIndex} vers ${direction === 'right' ? currentIndex + 1 : currentIndex - 1}`);
+    
+    setIsAnimating(true);
+    setSwipeBlocked(true);
+    const isNext = direction === 'right';
+    const newIndex = isNext ? currentIndex + 1 : currentIndex - 1;
+    
+    // Animation simplifiée pour plus de robustesse
+    // Fade out
+    Animated.timing(opacityRef, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      // Mise à jour de l'index
+      setCurrentIndex(newIndex);
+      positionRef.setValue({ x: 0, y: 0 });
       
-      setShowInstruction(false);
+      // Fade in
+      setTimeout(() => {
+        Animated.timing(opacityRef, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => {
+          setShowInstruction(false);
+          setIsAnimating(false);
+          setSwipeBlocked(false);
+        });
+      }, 50);
     });
+  };
+  
+  const goToNextStep = () => {
+    if (currentIndex >= allSteps.length - 1 || isAnimating || swipeBlocked) return;
+    console.log("Bouton suivant pressé, navigation à l'étape:", currentIndex + 1);
+    
+    // Réinitialiser l'état au cas où
+    resetSwipeState();
+    
+    // Court délai pour s'assurer que l'état est propre
+    setTimeout(() => {
+      handleSwipe('right');
+    }, 50);
   };
   
   const goToPrevStep = () => {
-    if (currentIndex <= 0) return;
+    if (currentIndex <= 0 || isAnimating || swipeBlocked) return;
+    console.log("Bouton précédent pressé, navigation à l'étape:", currentIndex - 1);
     
-    // Animation simple
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: true
-    }).start(() => {
-      setCurrentIndex(prev => prev - 1);
-      
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true
-      }).start();
-      
-      setShowInstruction(false);
-    });
+    // Réinitialiser l'état au cas où
+    resetSwipeState();
+    
+    // Court délai pour s'assurer que l'état est propre
+    setTimeout(() => {
+      handleSwipe('left');
+    }, 50);
   };
   
-  // Debug useEffect
-  useEffect(() => {
-    console.log('storyIntro:', storyIntro);
-    console.log('storySteps:', storySteps.length);
-    console.log('allSteps:', allSteps.length);
-    console.log('currentIndex:', currentIndex);
-  }, [storyIntro, storySteps, allSteps, currentIndex]);
-  
+  // Toggle instructions
   const toggleInstructions = () => {
     setShowInstruction(prev => !prev);
   };
+  
+  // En cas de changement d'index, enregistre un message
+  useEffect(() => {
+    console.log(`Index mis à jour: ${currentIndex}`);
+  }, [currentIndex]);
+  
+  // Affiche un message dans la console si les étapes sont chargées
+  useEffect(() => {
+    if (allSteps.length > 0) {
+      console.log(`${allSteps.length} étapes disponibles pour cette histoire`);
+    }
+  }, [allSteps.length]);
   
   const renderCards = () => {
     if (isLoading) {
@@ -198,87 +334,134 @@ export default function StoryModeScreen() {
     const recipeInstruction = !isIntro ? currentStep.description : '';
     
     return (
-      <Animated.View style={[styles.cardContainer, { opacity: fadeAnim }]}>
-        <ImageBackground
-          source={require('../../assets/card-texture.jpg')}
-          style={styles.cardBackground}
-          imageStyle={styles.cardBackgroundImage}
+      <View style={styles.cardsContainer}>
+        {/* Indicateur de swipe vers la gauche */}
+        <Animated.View
+          style={[
+            styles.swipeIndicator,
+            styles.swipeLeftIndicator,
+            { opacity: swipeLeftOpacity },
+          ]}
         >
-          <LinearGradient
-            colors={[
-              `${theme.colors.primary}E0`,
-              `${theme.colors.accent}E0`
-            ]}
-            style={styles.cardGradient}
+          <View style={styles.swipeIndicatorInner}>
+            <Ionicons name="arrow-back" size={30} color={theme.colors.card} />
+            <Text style={styles.swipeIndicatorText}>Précédent</Text>
+          </View>
+        </Animated.View>
+
+        {/* Indicateur de swipe vers la droite */}
+        <Animated.View
+          style={[
+            styles.swipeIndicator, 
+            styles.swipeRightIndicator,
+            { opacity: swipeRightOpacity },
+          ]}
+        >
+          <View style={styles.swipeIndicatorInner}>
+            <Ionicons name="arrow-forward" size={30} color={theme.colors.card} />
+            <Text style={styles.swipeIndicatorText}>Suivant</Text>
+          </View>
+        </Animated.View>
+        
+        {/* Carte principale */}
+        <Animated.View 
+          ref={cardRef}
+          style={[
+            styles.cardContainer, 
+            rotateAndTranslate,
+            { opacity: opacityRef }
+          ]}
+          {...panResponder.panHandlers}
+        >
+          <TouchableOpacity 
+            activeOpacity={1} 
+            onPress={handleCardPress}
+            style={{ flex: 1 }}
           >
-            <ScrollView 
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
+            <ImageBackground
+              source={require('../../assets/card-texture.jpg')}
+              style={styles.cardBackground}
+              imageStyle={styles.cardBackgroundImage}
             >
-              <View style={styles.cardContent}>
-                <Text style={styles.cardChapter}>
-                  {isIntro ? 'Prologue' : `Chapitre ${currentIndex}`}
-                </Text>
-                <Text style={styles.cardTitle}>{currentTitle}</Text>
-                <Text style={styles.cardText}>{currentContent}</Text>
-                
-                {/* Instructions (si ce n'est pas l'intro et si le bouton est activé) */}
-                {!isIntro && recipeInstruction && showInstruction && (
-                  <View style={styles.instructionsContainer}>
-                    <BlurView intensity={20} tint="light" style={styles.instructionsBlur}>
-                      <Text style={styles.instructionsTitle}>Instructions</Text>
-                      <Text style={styles.instructionsText}>{recipeInstruction}</Text>
-                    </BlurView>
+              <LinearGradient
+                colors={[
+                  `${theme.colors.primary}E0`,
+                  `${theme.colors.accent}E0`
+                ]}
+                style={styles.cardGradient}
+              >
+                <View style={styles.cardContent}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardChapter}>
+                      {isIntro ? 'Prologue' : `Chapitre ${currentIndex}`}
+                    </Text>
+                    <Text style={styles.cardTitle}>{currentTitle}</Text>
                   </View>
-                )}
-                
-                {/* Boutons de navigation */}
-                <View style={styles.navigationButtons}>
-                  {currentIndex > 0 ? (
-                    <TouchableOpacity 
-                      style={styles.navButton} 
-                      onPress={goToPrevStep}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="arrow-back" size={22} color={theme.colors.card} />
-                      <Text style={styles.navButtonText}>Précédent</Text>
-                    </TouchableOpacity>
-                  ) : <View style={{ width: 100 }} />}
                   
-                  {/* Bouton d'instructions (uniquement pour les étapes normales) */}
-                  {!isIntro && recipeInstruction && (
-                    <TouchableOpacity 
-                      style={[styles.instructionsButton, showInstruction && styles.instructionsButtonActive]} 
-                      onPress={toggleInstructions}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons 
-                        name={showInstruction ? "eye-off" : "eye"} 
-                        size={20} 
-                        color={theme.colors.card} 
-                      />
-                      <Text style={styles.instructionsButtonText}>
-                        {showInstruction ? "Cacher" : "Voir instructions"}
-                      </Text>
-                    </TouchableOpacity>
+                  <Text style={styles.cardText}>{currentContent}</Text>
+                  
+                  {/* Instructions (si ce n'est pas l'intro et si le bouton est activé) */}
+                  {!isIntro && recipeInstruction && showInstruction && (
+                    <View style={styles.instructionsContainer}>
+                      <BlurView intensity={20} tint="light" style={styles.instructionsBlur}>
+                        <Text style={styles.instructionsTitle}>Instructions</Text>
+                        <Text style={styles.instructionsText}>{recipeInstruction}</Text>
+                      </BlurView>
+                    </View>
                   )}
                   
-                  {currentIndex < allSteps.length - 1 ? (
+                  {/* Boutons de navigation */}
+                  <View style={styles.navigationButtons}>
                     <TouchableOpacity 
-                      style={styles.navButton} 
-                      onPress={goToNextStep}
+                      style={[
+                        styles.navButton, 
+                        styles.navButtonPrev,
+                        currentIndex <= 0 && styles.navButtonDisabled
+                      ]} 
+                      onPress={goToPrevStep}
+                      disabled={currentIndex <= 0}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.navButtonText}>Suivant</Text>
-                      <Ionicons name="arrow-forward" size={22} color={theme.colors.card} />
+                      <Ionicons name="arrow-back" size={22} color={currentIndex <= 0 ? 'rgba(255, 255, 255, 0.4)' : theme.colors.card} />
                     </TouchableOpacity>
-                  ) : <View style={{ width: 100 }} />}
+                    
+                    {/* Bouton d'instructions (uniquement pour les étapes normales) */}
+                    {!isIntro && recipeInstruction && (
+                      <TouchableOpacity 
+                        style={[styles.instructionsButton, showInstruction && styles.instructionsButtonActive]} 
+                        onPress={toggleInstructions}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons 
+                          name={showInstruction ? "eye-off" : "eye"} 
+                          size={20} 
+                          color={theme.colors.card} 
+                        />
+                        <Text style={styles.instructionsButtonText}>
+                          {showInstruction ? "Cacher" : "Voir"}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    <TouchableOpacity 
+                      style={[
+                        styles.navButton, 
+                        styles.navButtonNext,
+                        currentIndex >= allSteps.length - 1 && styles.navButtonDisabled
+                      ]} 
+                      onPress={goToNextStep}
+                      disabled={currentIndex >= allSteps.length - 1}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="arrow-forward" size={22} color={currentIndex >= allSteps.length - 1 ? 'rgba(255, 255, 255, 0.4)' : theme.colors.card} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            </ScrollView>
-          </LinearGradient>
-        </ImageBackground>
-      </Animated.View>
+              </LinearGradient>
+            </ImageBackground>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
     );
   };
   
@@ -374,9 +557,15 @@ const styles = StyleSheet.create({
   progressDotCompleted: {
     backgroundColor: theme.colors.secondary,
   },
-  cardContainer: {
+  cardsContainer: {
     flex: 1,
-    margin: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardContainer: {
+    position: 'absolute',
+    width: width * 0.9,
+    height: height * 0.7,
     borderRadius: 20,
     overflow: 'hidden',
     ...theme.shadows.medium,
@@ -392,14 +581,14 @@ const styles = StyleSheet.create({
   cardGradient: {
     flex: 1,
     borderRadius: 20,
-  },
-  scrollContent: {
-    flexGrow: 1,
     padding: 20,
   },
   cardContent: {
     flex: 1,
     justifyContent: 'space-between',
+  },
+  cardHeader: {
+    marginBottom: 20,
   },
   cardChapter: {
     fontSize: 14,
@@ -423,11 +612,39 @@ const styles = StyleSheet.create({
   },
   cardText: {
     fontSize: 18,
+    flex: 1,
     lineHeight: 28,
     color: theme.colors.card,
     marginBottom: 20,
     ...theme.typography.body,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  swipeIndicator: {
+    position: 'absolute',
+    top: '50%',
+    zIndex: 1000,
+    padding: 15,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  swipeLeftIndicator: {
+    left: 15,
+  },
+  swipeRightIndicator: {
+    right: 15,
+  },
+  swipeIndicatorInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swipeIndicatorText: {
+    color: theme.colors.card,
+    fontSize: 14,
+    marginTop: 8,
+    ...theme.typography.body,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -461,7 +678,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: theme.borderRadius.full,
-    alignSelf: 'center',
+    flex: 1,
+    justifyContent: 'center',
     ...theme.shadows.small,
   },
   instructionsButtonActive: {
@@ -481,13 +699,23 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   navButton: {
-    flexDirection: 'row',
+    width: 45,
+    height: 45,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: theme.borderRadius.full,
+    borderRadius: 22.5,
     ...theme.shadows.small,
+  },
+  navButtonPrev: {
+    marginRight: 10,
+  },
+  navButtonNext: {
+    marginLeft: 10,
+  },
+  navButtonDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    opacity: 0.5,
   },
   navButtonText: {
     color: theme.colors.card,
