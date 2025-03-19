@@ -438,7 +438,7 @@ export default function StoryModeScreen() {
                           color={theme.colors.card} 
                         />
                         <Text style={styles.instructionsButtonText}>
-                          {showInstruction ? "Cacher" : "Voir"}
+                          {showInstruction ? "Cacher" : "Voir les instructions"}
                         </Text>
                       </TouchableOpacity>
                     )}
