@@ -4,6 +4,7 @@ import { TouchableOpacity, Image, StyleSheet, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../contexts/AuthContext';
 import { theme } from '../styles/theme';
+import { BlurView } from 'expo-blur';
 
 import HomeScreen from '../screens/HomeScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
@@ -33,11 +34,11 @@ export function AppNavigator() {
       initialRouteName="Home"
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#ffffff',
+          backgroundColor: theme.colors.background,
           elevation: 0, // Pour Android
           shadowOpacity: 0, // Pour iOS
           borderBottomWidth: 1,
-          borderBottomColor: '#f0f0f0',
+          borderBottomColor: 'rgba(211, 197, 184, 0.3)',
         },
         headerTitleStyle: {
           fontSize: 20,
@@ -51,18 +52,25 @@ export function AppNavigator() {
         name="Home" 
         component={HomeScreen} 
         options={({ navigation }) => ({
-          title: 'CulinaryJourney',
+          title: 'Savorista',
+          headerTitleStyle: {
+            fontSize: 22,
+            fontWeight: 'bold',
+            color: theme.colors.primary,
+          },
           headerRight: () => (
             <View style={{ flexDirection: 'row' }}>
               <TouchableOpacity 
-                style={[styles.profileButton, { marginRight: 10 }]}
+                style={[styles.headerButton, { marginRight: 8 }]}
                 onPress={() => navigation.navigate('TestSupabase')}
               >
-                <Text style={{ color: theme.colors.primary }}>Test DB</Text>
+                <BlurView intensity={50} tint="light" style={styles.blurButton}>
+                  <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Test</Text>
+                </BlurView>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={styles.profileButton}
+                style={styles.headerButton}
                 onPress={() => {
                   if (session) {
                     navigation.navigate('Profile');
@@ -71,17 +79,20 @@ export function AppNavigator() {
                   }
                 }}
               >
-                {session ? (
-                  <Image 
-                    source={{ uri: 'https://dummyimage.com/100x100/cccccc/ffffff&text=User' }}
-                    style={styles.profileImage} 
-                  />
-                ) : (
-                  <Ionicons name="person-circle-outline" size={30} color={theme.colors.primary} />
-                )}
+                <BlurView intensity={50} tint="light" style={styles.blurButton}>
+                  {session ? (
+                    <Image 
+                      source={{ uri: 'https://dummyimage.com/100x100/cccccc/ffffff&text=User' }}
+                      style={styles.profileImage} 
+                    />
+                  ) : (
+                    <Ionicons name="person-circle-outline" size={24} color={theme.colors.primary} />
+                  )}
+                </BlurView>
               </TouchableOpacity>
             </View>
           ),
+          headerShown: false, // Cacher l'en-tête pour HomeScreen car nous avons notre propre en-tête personnalisé
         })}
       />
       <Stack.Screen 
@@ -121,13 +132,21 @@ export function AppNavigator() {
 }
 
 const styles = StyleSheet.create({
-  profileButton: {
-    marginRight: 15,
+  headerButton: {
+    marginRight: 12,
+    borderRadius: theme.borderRadius.full,
+    overflow: 'hidden',
+  },
+  blurButton: {
+    padding: 8,
+    borderRadius: theme.borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     borderWidth: 2,
     borderColor: theme.colors.primary,
   },

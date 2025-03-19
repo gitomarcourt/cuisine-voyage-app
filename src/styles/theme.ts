@@ -1,25 +1,31 @@
+// Définition des types pour la typographie
+type FontWeight = 'normal' | 'bold' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900';
+
 export const theme = {
   colors: {
-    primary: '#FF6B35', // Orange chaud
+    primary: '#8B5A2B',       // Marron chocolat
     primaryLight: '#FF8C61',
     primaryDark: '#E85826',
-    secondary: '#2A9D8F', // Turquoise profond
+    secondary: '#D2B48C',     // Tan/Beige
     secondaryLight: '#40B5A7',
     secondaryDark: '#1E7D73',
-    accent: '#F9C74F', // Jaune doré
+    accent: '#A0522D',        // Sienna (marron rougeâtre)
     accentLight: '#FFDD87',
     accentDark: '#E5A929',
-    background: '#FFF9F2', // Fond crème chaud
-    card: '#FFFFFF',
-    text: '#432818', // Brun chocolat
-    textLight: '#795548',
+    background: '#FAF3E0',    // Crème très légère
+    card: '#FFF8E7',          // Crème plus claire
+    text: '#3A271B',          // Marron foncé pour le texte
+    textLight: '#6B4932',     // Marron moyen pour texte secondaire
     textMuted: '#9C8579',
-    success: '#43AA8B',
+    success: '#2E8B57',       // Vert foncé
     error: '#F94144',
-    warning: '#F8961E',
+    warning: '#CD853F',       // Peru (orangé-marron)
     info: '#277DA1',
-    overlay: 'rgba(67, 40, 24, 0.5)', // Pour les overlays et blurs
-    border: '#dfe6e9', // Ajout de la propriété border
+    placeholder: '#D3C5B8',   // Beige grisâtre
+    overlay: 'rgba(58, 39, 27, 0.7)', // Overlay marron semi-transparent
+    white: '#FFFFFF',
+    black: '#000000',
+    danger: '#B22222',        // Rouge foncé
   },
   spacing: {
     xs: 4,
@@ -30,10 +36,10 @@ export const theme = {
     xxl: 48,
   },
   borderRadius: {
-    sm: 8,
-    md: 12,
-    lg: 20,
-    xl: 28,
+    sm: 4,
+    md: 8,
+    lg: 16,
+    xl: 24,
     full: 9999,
   },
   shadows: {
@@ -41,31 +47,36 @@ export const theme = {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
-      shadowRadius: 4,
+      shadowRadius: 3,
       elevation: 2,
     },
     medium: {
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
+      shadowOffset: { width: 0, height: 3 },
       shadowOpacity: 0.15,
-      shadowRadius: 8,
+      shadowRadius: 5,
       elevation: 4,
     },
     large: {
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 6 },
+      shadowOffset: { width: 0, height: 5 },
       shadowOpacity: 0.2,
-      shadowRadius: 12,
-      elevation: 6,
+      shadowRadius: 8,
+      elevation: 8,
     },
   },
   typography: {
     heading: {
-      fontFamily: 'serif', // Vous pourrez remplacer par une police personnalisée
-      fontWeight: 'bold' as const,
+      fontFamily: 'System',
+      fontWeight: 'bold' as FontWeight,
+    },
+    subheading: {
+      fontFamily: 'System',
+      fontWeight: '600' as FontWeight,
     },
     body: {
-      fontFamily: 'sans-serif', // Vous pourrez remplacer par une police personnalisée
+      fontFamily: 'System',
+      fontWeight: 'normal' as FontWeight,
     },
     accent: {
       fontFamily: 'sans-serif', // Pour une police manuscrite ou décorative

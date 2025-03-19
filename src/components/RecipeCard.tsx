@@ -2,6 +2,7 @@ import * as React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { theme } from '../styles/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 const cardWidth = width - (theme.spacing.lg * 2);
@@ -38,12 +39,15 @@ export default function RecipeCard({
           source={typeof imageSource === 'object' && imageSource.uri ? 
             imageSource : 
             { uri: 'https://dummyimage.com/400x300/cccccc/ffffff&text=Image+non+disponible' }} 
-          style={styles.image} 
+          style={{ width: '100%', height: '100%', position: 'absolute' }}
           resizeMode="cover"
         />
         
         {/* Overlay dégradé au-dessus de l'image */}
-        <View style={styles.overlay} />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.7)']}
+          style={StyleSheet.absoluteFillObject}
+        />
         
         {/* Contenu principal */}
         <View style={styles.contentContainer}>
@@ -128,6 +132,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderTopLeftRadius: theme.borderRadius.md,
     borderTopRightRadius: theme.borderRadius.md,
+    backgroundColor: 'rgba(58, 39, 27, 0.4)',
   },
   content: {
     padding: theme.spacing.md,
@@ -180,6 +185,7 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.xs,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.full,
+    backgroundColor: 'rgba(250, 243, 224, 0.8)',
   },
   countryText: {
     ...theme.typography.body,
@@ -199,7 +205,7 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.xs,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.full,
-    backgroundColor: 'rgba(249, 199, 79, 0.7)',
+    backgroundColor: 'rgba(160, 82, 45, 0.8)',
   },
   premiumText: {
     ...theme.typography.heading,
