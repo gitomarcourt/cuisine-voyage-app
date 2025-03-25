@@ -1,3 +1,5 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
 export interface Recipe {
   id: number;
   title: string;
@@ -43,7 +45,7 @@ export interface Instruction {
 export interface Category {
   id: number;
   name: string;
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   created_at?: string;
 }
 

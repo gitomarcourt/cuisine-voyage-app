@@ -52,14 +52,6 @@ const featuredRecipes = [
   },
 ];
 
-const categories = [
-  { id: 1, name: 'Asiatique', icon: 'noodles' as any },
-  { id: 2, name: 'Méditerranéen', icon: 'food-drumstick' as any },
-  { id: 3, name: 'Africain', icon: 'pot-steam' as any },
-  { id: 4, name: 'Latino', icon: 'taco' as any },
-  { id: 5, name: 'Européen', icon: 'pasta' as any },
-];
-
 // Données pour la section inspiration
 const inspirations = [
   {
@@ -214,7 +206,7 @@ export default function HomeScreen() {
                 >
                   <BlurView intensity={30} tint="light" style={styles.categoryBlur}>
                     <MaterialCommunityIcons 
-                      name={category.icon as any} 
+                      name={category.icon} 
                       size={28} 
                       color={theme.colors.primary} 
                     />
@@ -348,6 +340,21 @@ export default function HomeScreen() {
           </ImageBackground>
         </TouchableOpacity>
       </Animated.ScrollView>
+
+      {/* Bouton flottant pour ajouter une recette */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('RecipeGenerator')}
+      >
+        <LinearGradient
+          colors={[theme.colors.primary, theme.colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.fabGradient}
+        >
+          <Ionicons name="add" size={30} color="white" />
+        </LinearGradient>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -356,6 +363,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginVertical: 20,
+    color: theme.colors.primary,
   },
   scrollContent: {
     paddingBottom: 40,
@@ -621,5 +635,25 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
     fontWeight: 'normal' as const,
     textAlign: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  fabGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -14,6 +14,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import AuthScreen from '../screens/AuthScreen';
 import TestSupabaseScreen from '../screens/TestSupabaseScreen';
 import StoryModeScreen from '../screens/StoryModeScreen';
+import { RecipeGeneratorScreen } from '../screens/RecipeGeneratorScreen';
 // Autres imports de screens
 
 // Définition du type pour les paramètres de navigation
@@ -25,6 +26,7 @@ export type RootStackParamList = {
   Auth: undefined;
   TestSupabase: undefined;
   StoryMode: { id: number, title: string };
+  RecipeGenerator: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -38,8 +40,8 @@ export function AppNavigator() {
       screenOptions={{
         headerStyle: {
           backgroundColor: theme.colors.background,
-          elevation: 0, // Pour Android
-          shadowOpacity: 0, // Pour iOS
+          elevation: 0,
+          shadowOpacity: 0,
           borderBottomWidth: 1,
           borderBottomColor: 'rgba(211, 197, 184, 0.3)',
         },
@@ -54,49 +56,9 @@ export function AppNavigator() {
       <Stack.Screen 
         name="Home" 
         component={HomeScreen} 
-        options={({ navigation }) => ({
-          title: 'Savorista',
-          headerTitleStyle: {
-            fontSize: 22,
-            fontWeight: 'bold',
-            color: theme.colors.primary,
-          },
-          headerRight: () => (
-            <View style={{ flexDirection: 'row' }}>
-              <TouchableOpacity 
-                style={[styles.headerButton, { marginRight: 8 }]}
-                onPress={() => navigation.navigate('TestSupabase')}
-              >
-                <BlurView intensity={50} tint="light" style={styles.blurButton}>
-                  <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Test</Text>
-                </BlurView>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.headerButton}
-                onPress={() => {
-                  if (session) {
-                    navigation.navigate('Profile');
-                  } else {
-                    navigation.navigate('Auth');
-                  }
-                }}
-              >
-                <BlurView intensity={50} tint="light" style={styles.blurButton}>
-                  {session ? (
-                    <Image 
-                      source={{ uri: 'https://dummyimage.com/100x100/cccccc/ffffff&text=User' }}
-                      style={styles.profileImage} 
-                    />
-                  ) : (
-                    <Ionicons name="person-circle-outline" size={24} color={theme.colors.primary} />
-                  )}
-                </BlurView>
-              </TouchableOpacity>
-            </View>
-          ),
-          headerShown: false, // Cacher l'en-tête pour HomeScreen car nous avons notre propre en-tête personnalisé
-        })}
+        options={{ 
+          headerShown: false
+        }}
       />
       <Stack.Screen 
         name="RecipeDetail" 
@@ -138,6 +100,14 @@ export function AppNavigator() {
         options={{ 
           headerShown: false, // Cacher l'en-tête pour une expérience plus immersive
           // La propriété 'presentation' n'est pas disponible dans cette version
+        }}
+      />
+      <Stack.Screen 
+        name="RecipeGenerator" 
+        component={RecipeGeneratorScreen} 
+        options={{ 
+          title: 'Créer une recette',
+          presentation: 'modal',
         }}
       />
       {/* Autres écrans */}
