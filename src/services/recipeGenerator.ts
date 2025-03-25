@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 
 // Configuration de l'API de génération
 const API_CONFIG = {
-  baseUrl: 'https://api.sortium.fr',  // URL de notre API de génération
+  baseUrl: process.env.EXPO_PUBLIC_API_URL || 'https://api.sortium.fr',
   apiKey: process.env.EXPO_PUBLIC_API_KEY || '',
 };
 
@@ -12,49 +12,40 @@ export interface GenerationStatus {
   message: string;
 }
 
-interface Ingredient {
-  name: string;
-  quantity: string;
-  unit: string;
-}
-
-interface Step {
-  order_number: number;
-  title: string;
-  description: string;
-}
-
-interface Playlist {
-  title: string;
-  description: string;
-  spotify_link: string;
-}
-
-interface WinePairing {
-  name: string;
-  description: string;
-  region: string;
-}
-
-interface Recipe {
-  title: string;
-  country: string;
-  region: string;
-  description: string;
-  preparation_time: number;
-  cooking_time: number;
-  difficulty: string;
-  servings: number;
-  is_premium: boolean;
-  image_url: string;
-}
-
-interface GeneratedRecipeData {
-  recipe: Recipe;
-  ingredients: Ingredient[];
-  steps: Step[];
-  playlist: Playlist;
-  wine_pairing: WinePairing;
+// Types pour les données générées
+export interface GeneratedRecipeData {
+  recipe: {
+    title: string;
+    country: string;
+    region: string;
+    description: string;
+    preparation_time: number;
+    cooking_time: number;
+    difficulty: string;
+    servings: number;
+    is_premium: boolean;
+    image_url: string;
+  };
+  ingredients: Array<{
+    name: string;
+    quantity: string;
+    unit: string;
+  }>;
+  steps: Array<{
+    order_number: number;
+    title: string;
+    description: string;
+  }>;
+  playlist: {
+    title: string;
+    description: string;
+    spotify_link: string;
+  };
+  wine_pairing: {
+    name: string;
+    description: string;
+    region: string;
+  };
 }
 
 export const recipeGeneratorService = {
@@ -62,36 +53,14 @@ export const recipeGeneratorService = {
     try {
       console.log('🚀 Démarrage de la génération de la recette:', recipeName);
       
-      // Étape 1: Vérification de la connexion au serveur
+      // Étape 1: Connexion au serveur
       onProgress({
         step: 0,
         status: 'loading',
         message: 'Connexion au serveur de génération...'
       });
 
-      try {
-        const response = await fetch(`${API_CONFIG.baseUrl}/ping`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': API_CONFIG.apiKey,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Le serveur de génération n\'est pas disponible');
-        }
-      } catch (error) {
-        console.error('❌ Erreur de connexion au serveur:', error);
-        onProgress({
-          step: 0,
-          status: 'error',
-          message: 'Le serveur de génération n\'est pas disponible. Veuillez réessayer plus tard.'
-        });
-        return false;
-      }
-
-      // Étape 2: Génération de la recette
+      // Étape 2: Génération et sauvegarde de la recette
       onProgress({
         step: 1,
         status: 'loading',
@@ -105,7 +74,7 @@ export const recipeGeneratorService = {
           'Content-Type': 'application/json',
           'X-API-Key': API_CONFIG.apiKey,
         },
-        body: JSON.stringify({ recipe_name: recipeName })
+        body: JSON.stringify({ recipeName: recipeName })
       });
 
       if (!generateResponse.ok) {
@@ -122,39 +91,24 @@ export const recipeGeneratorService = {
       const result = await generateResponse.json();
       console.log('📋 Données reçues:', JSON.stringify(result, null, 2));
 
-      if (!result.success || !result.data) {
-        console.error('❌ Données invalides reçues du serveur');
+      if (!result.success) {
+        console.error('❌ Erreur lors de la génération');
         onProgress({
           step: 1,
           status: 'error',
-          message: 'Les données générées sont invalides'
+          message: result.error || 'Une erreur est survenue lors de la génération'
         });
         return false;
       }
 
-      const recipeData = result.data as GeneratedRecipeData;
-      console.log('✅ Données de recette validées');
-
-      // Étape 3: Sauvegarde dans Supabase
-      try {
-        await this.saveRecipeToSupabase(recipeData, onProgress);
-        
-        onProgress({
-          step: 5,
-          status: 'completed',
-          message: 'Recette générée et sauvegardée avec succès!'
-        });
-        
-        return true;
-      } catch (error) {
-        console.error('❌ Erreur lors de la sauvegarde:', error);
-        onProgress({
-          step: 5,
-          status: 'error',
-          message: `Erreur lors de la sauvegarde: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
-        });
-        return false;
-      }
+      // La recette a été générée et sauvegardée avec succès
+      onProgress({
+        step: 5,
+        status: 'completed',
+        message: 'Recette générée et sauvegardée avec succès!'
+      });
+      
+      return true;
     } catch (error) {
       console.error('❌ Erreur générale:', error);
       onProgress({
@@ -260,4 +214,21 @@ export const recipeGeneratorService = {
 
     if (winePairingError) throw winePairingError;
   }
+};
+
+export const generateRecipe = async (recipeName: string): Promise<Response> => {
+  const response = await fetch('https://api.sortium.fr/generate-recipe', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': process.env.EXPO_PUBLIC_API_KEY || '',
+    },
+    body: JSON.stringify({ recipeName }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Erreur lors de la génération de la recette');
+  }
+
+  return response;
 }; 
