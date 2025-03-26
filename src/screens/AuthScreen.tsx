@@ -5,23 +5,25 @@ import {
   StyleSheet, 
   TextInput, 
   TouchableOpacity, 
-  ScrollView, 
   ActivityIndicator, 
   Alert,
-  Image,
   Dimensions,
   Animated,
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  StatusBar,
+  SafeAreaView
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { useAuthContext } from '../contexts/AuthContext';
 import { theme } from '../styles/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SignInFormData, SignUpFormData } from '../types/auth';
+import Svg, { Path, Defs, Stop, Circle, LinearGradient as SvgLinearGradient } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -62,6 +64,22 @@ export default function AuthScreen() {
   // Animations
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(30)).current;
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
+  const scaleAnim = React.useRef(new Animated.Value(0.9)).current;
+  
+  // Récupérer les insets de la zone de sécurité
+  const insets = useSafeAreaInsets();
+  
+  // Animation de rotation lente pour l'illustration
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 20000,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
   
   // Accès au contexte d'authentification
   const { signIn, signUp, resetPassword } = useAuthContext();
@@ -77,6 +95,11 @@ export default function AuthScreen() {
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 800,
         useNativeDriver: true,
       })
     ]).start();
@@ -195,11 +218,6 @@ export default function AuthScreen() {
         
         if (!success && error) {
           Alert.alert('Erreur d\'inscription', error);
-        } else if (success) {
-          Alert.alert(
-            'Inscription réussie', 
-            'Votre compte a été créé avec succès! Vérifiez votre email pour confirmer votre compte.'
-          );
         }
       }
     } catch (error) {
@@ -229,92 +247,147 @@ export default function AuthScreen() {
   
   // Construire le sous-titre selon le mode
   const getFormSubtitle = () => {
-    if (forgotPasswordMode) {
-      return 'Entrez votre adresse email pour recevoir un lien de réinitialisation';
-    }
-    return isLogin 
-      ? 'Connectez-vous pour accéder à votre carnet de voyage culinaire' 
-      : 'Créez un compte pour commencer votre aventure culinaire';
+    if (forgotPasswordMode) return 'Entrez votre email pour réinitialiser';
+    if (isLogin) return 'Accédez à votre voyage culinaire';
+    return 'Rejoignez notre aventure gastronomique';
   };
   
-  // Construire le texte du bouton selon le mode
+  // Déterminer le texte du bouton de soumission
   const getSubmitButtonText = () => {
     if (forgotPasswordMode) return 'Envoyer le lien';
     return isLogin ? 'Se connecter' : 'S\'inscrire';
   };
   
-  // Construire le texte du lien de bascule selon le mode
+  // Texte pour basculer entre les modes
   const getToggleText = () => {
-    if (forgotPasswordMode) {
-      return 'Retour à la connexion';
-    }
-    return isLogin 
-      ? 'Pas encore de compte ? S\'inscrire' 
-      : 'Déjà un compte ? Se connecter';
+    if (forgotPasswordMode) return 'Retour à la connexion';
+    return isLogin ? 'Créer un compte' : 'Se connecter';
   };
   
-  return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <KeyboardAvoidingView 
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+  // Rotation pour l'illustration
+  const rotate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  
+  // Rendu de l'illustration
+  const renderAuthIllustration = () => {
+    let iconName: string = isLogin ? 'account-key' : 'account-plus';
+    if (forgotPasswordMode) iconName = 'email-send';
+    
+    return (
+      <Animated.View
+        style={[
+          styles.illustrationContainer,
+          {
+            opacity: fadeAnim,
+            transform: [
+              { scale: scaleAnim },
+              { rotate: rotate }
+            ],
+          },
+        ]}
       >
-        <Image 
-          source={require('../../assets/auth-background.jpg')}
-          style={styles.backgroundImage} 
-          blurRadius={3}
-        />
-        
-        <ScrollView 
-          contentContainerStyle={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
+        <LinearGradient
+          colors={[theme.colors.primary, theme.colors.accent]}
+          style={styles.iconBackground}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
-          <Animated.View 
-            style={[
-              styles.logoContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }
-            ]}
-          >
-            <Text style={styles.logoText}>Cuisine Voyage</Text>
-            <Text style={styles.logoSubtitle}>Découvrez le monde à travers ses saveurs</Text>
-          </Animated.View>
-          
-          <Animated.View 
-            style={[
-              styles.authCardContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }
-            ]}
-          >
-            <BlurView intensity={20} tint="light" style={styles.authCard}>
-              <Text style={styles.title}>{getFormTitle()}</Text>
-              <Text style={styles.subtitle}>{getFormSubtitle()}</Text>
+          <MaterialCommunityIcons name={iconName as any} size={60} color="white" />
+        </LinearGradient>
+        
+        <Svg height="100%" width="100%" style={styles.decorativeSvg} viewBox="0 0 200 200">
+          <Defs>
+            <SvgLinearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor={theme.colors.primary} stopOpacity="0.3" />
+              <Stop offset="1" stopColor={theme.colors.accent} stopOpacity="0.3" />
+            </SvgLinearGradient>
+          </Defs>
+          <Circle cx="100" cy="100" r="80" fill="url(#grad)" />
+          <Circle cx="70" cy="70" r="10" fill="white" opacity="0.2" />
+          <Circle cx="130" cy="130" r="15" fill="white" opacity="0.2" />
+          <Path
+            d="M30,100 Q100,30 170,100 Q100,170 30,100"
+            stroke={theme.colors.accent}
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray="5,5"
+            opacity="0.6"
+          />
+        </Svg>
+      </Animated.View>
+    );
+  };
+  
+  const navigation = useNavigation();
+  
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      
+      <LinearGradient
+        colors={['#FFFFFF', '#F8F5F1']}
+        style={styles.background}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+      />
+      
+      <View style={[styles.header, { marginTop: insets.top || 20 }]}>
+        <Text style={styles.appName}>Savorista</Text>
+        <LinearGradient
+          colors={[theme.colors.primary, theme.colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.titleUnderline}
+        />
+      </View>
+      
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingContainer}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={[styles.content, !isLogin && { paddingTop: 50 }]}>
+            {!isLogin && !forgotPasswordMode ? null : (
+              <View style={styles.illustrationWrapper}>
+                {renderAuthIllustration()}
+              </View>
+            )}
+            
+            <Animated.View 
+              style={[
+                styles.formContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }]
+                }
+              ]}
+            >
+              <Text style={styles.formTitle}>{getFormTitle()}</Text>
+              <Text style={styles.formSubtitle}>{getFormSubtitle()}</Text>
               
-              {/* Champ nom d'utilisateur (uniquement en mode inscription) */}
               {!isLogin && !forgotPasswordMode && (
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Nom d'utilisateur</Text>
+                  <Text style={styles.inputLabel}>Nom d'utilisateur</Text>
                   <View style={[
-                    styles.inputWrapper, 
+                    styles.textInputContainer,
                     formErrors.username && styles.inputError
                   ]}>
-                    <Ionicons name="person-outline" size={18} color={theme.colors.textLight} style={styles.inputIcon} />
-                    <TextInput 
-                      style={styles.input}
+                    <Ionicons 
+                      name="person-outline" 
+                      size={20} 
+                      color={formErrors.username ? theme.colors.error : theme.colors.textMuted}
+                      style={styles.inputIcon} 
+                    />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Votre nom d'utilisateur"
+                      placeholderTextColor={theme.colors.placeholder}
                       value={formData.username}
                       onChangeText={(text) => updateFormField('username', text)}
-                      placeholder="Votre nom d'utilisateur"
                       autoCapitalize="none"
-                      placeholderTextColor={theme.colors.textLight}
                     />
-                    {formErrors.username && (
-                      <Ionicons name="alert-circle" size={18} color={theme.colors.error} />
-                    )}
                   </View>
                   {formErrors.username && (
                     <Text style={styles.errorText}>
@@ -324,26 +397,27 @@ export default function AuthScreen() {
                 </View>
               )}
               
-              {/* Champ email (pour tous les modes) */}
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.inputLabel}>Email</Text>
                 <View style={[
-                  styles.inputWrapper, 
+                  styles.textInputContainer,
                   formErrors.email && styles.inputError
                 ]}>
-                  <Ionicons name="mail-outline" size={18} color={theme.colors.textLight} style={styles.inputIcon} />
-                  <TextInput 
-                    style={styles.input}
+                  <Ionicons 
+                    name="mail-outline" 
+                    size={20} 
+                    color={formErrors.email ? theme.colors.error : theme.colors.textMuted}
+                    style={styles.inputIcon} 
+                  />
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Votre adresse email"
+                    placeholderTextColor={theme.colors.placeholder}
                     value={formData.email}
                     onChangeText={(text) => updateFormField('email', text)}
-                    placeholder="votre@email.com"
                     keyboardType="email-address"
                     autoCapitalize="none"
-                    placeholderTextColor={theme.colors.textLight}
                   />
-                  {formErrors.email && (
-                    <Ionicons name="alert-circle" size={18} color={theme.colors.error} />
-                  )}
                 </View>
                 {formErrors.email && (
                   <Text style={styles.errorText}>
@@ -352,31 +426,35 @@ export default function AuthScreen() {
                 )}
               </View>
               
-              {/* Champ mot de passe (sauf en mode mot de passe oublié) */}
               {!forgotPasswordMode && (
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Mot de passe</Text>
+                  <Text style={styles.inputLabel}>Mot de passe</Text>
                   <View style={[
-                    styles.inputWrapper, 
+                    styles.textInputContainer,
                     formErrors.password && styles.inputError
                   ]}>
-                    <Ionicons name="lock-closed-outline" size={18} color={theme.colors.textLight} style={styles.inputIcon} />
-                    <TextInput 
-                      style={styles.input}
+                    <Ionicons 
+                      name="lock-closed-outline" 
+                      size={20} 
+                      color={formErrors.password ? theme.colors.error : theme.colors.textMuted}
+                      style={styles.inputIcon} 
+                    />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Votre mot de passe"
+                      placeholderTextColor={theme.colors.placeholder}
                       value={formData.password}
                       onChangeText={(text) => updateFormField('password', text)}
-                      placeholder="Votre mot de passe"
                       secureTextEntry={!showPassword}
-                      placeholderTextColor={theme.colors.textLight}
                     />
                     <TouchableOpacity 
+                      style={styles.showPasswordButton}
                       onPress={() => setShowPassword(!showPassword)}
-                      style={styles.passwordToggle}
                     >
                       <Ionicons 
-                        name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                        size={18} 
-                        color={theme.colors.textLight} 
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                        size={20} 
+                        color={theme.colors.textMuted} 
                       />
                     </TouchableOpacity>
                   </View>
@@ -388,10 +466,9 @@ export default function AuthScreen() {
                 </View>
               )}
               
-              {/* Lien "Mot de passe oublié" (seulement en mode connexion) */}
               {isLogin && !forgotPasswordMode && (
                 <TouchableOpacity 
-                  style={styles.forgotPasswordLink}
+                  style={styles.forgotPasswordButton}
                   onPress={toggleForgotPassword}
                 >
                   <Text style={styles.forgotPasswordText}>
@@ -400,9 +477,8 @@ export default function AuthScreen() {
                 </TouchableOpacity>
               )}
               
-              {/* Bouton de soumission */}
-              <TouchableOpacity
-                style={styles.submitButtonWrapper}
+              <TouchableOpacity 
+                style={styles.submitButton}
                 onPress={handleSubmit}
                 disabled={loading}
               >
@@ -410,10 +486,10 @@ export default function AuthScreen() {
                   colors={[theme.colors.primary, theme.colors.accent]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={styles.submitButton}
+                  style={styles.gradientButton}
                 >
                   {loading ? (
-                    <ActivityIndicator color="white" size="small" />
+                    <ActivityIndicator size="small" color="white" />
                   ) : (
                     <Text style={styles.submitButtonText}>
                       {getSubmitButtonText()}
@@ -422,153 +498,177 @@ export default function AuthScreen() {
                 </LinearGradient>
               </TouchableOpacity>
               
-              {/* Lien pour basculer entre les modes */}
               <TouchableOpacity 
-                style={styles.toggleButton}
+                style={styles.toggleModeButton}
                 onPress={forgotPasswordMode ? toggleForgotPassword : toggleAuthMode}
               >
-                <Text style={styles.toggleButtonText}>
+                <Text style={styles.toggleModeText}>
                   {getToggleText()}
                 </Text>
               </TouchableOpacity>
-            </BlurView>
-          </Animated.View>
-        </ScrollView>
+            </Animated.View>
+          </View>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: 'white',
   },
-  backgroundImage: {
+  background: {
     position: 'absolute',
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
-  scrollContainer: {
-    flexGrow: 1,
-    paddingTop: 80,
-    paddingBottom: 40,
-    alignItems: 'center',
+  keyboardAvoidingContainer: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
   },
-  logoContainer: {
+  header: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: theme.spacing.sm,
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
   },
-  logoText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: 'white',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 5,
-  },
-  logoSubtitle: {
-    fontSize: 16,
-    color: 'white',
-    marginTop: 5,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  authCardContainer: {
-    width: width * 0.9,
-    maxWidth: 400,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    ...theme.shadows.medium,
-  },
-  authCard: {
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-  },
-  title: {
+  appName: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: theme.colors.primary,
+    marginBottom: theme.spacing.xs,
+  },
+  titleUnderline: {
+    height: 3,
+    width: 30,
+    borderRadius: 2,
+  },
+  illustrationWrapper: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  illustrationContainer: {
+    width: width * 0.5,
+    height: width * 0.25,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconBackground: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  decorativeSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  formContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginHorizontal: theme.spacing.sm,
+    ...theme.shadows.medium,
+  },
+  formTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
     color: theme.colors.text,
-    marginBottom: 10,
+    marginBottom: theme.spacing.xs / 2,
     textAlign: 'center',
   },
-  subtitle: {
-    fontSize: 14,
-    color: theme.colors.textLight,
-    marginBottom: 20,
+  formSubtitle: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginBottom: theme.spacing.md,
     textAlign: 'center',
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: theme.spacing.sm,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: 8,
+    marginBottom: theme.spacing.xs / 2,
   },
-  inputWrapper: {
+  textInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(211, 197, 184, 0.5)',
+    borderColor: theme.colors.secondary,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'white',
+    ...theme.shadows.small,
+  },
+  inputIcon: {
+    padding: theme.spacing.sm,
+  },
+  textInput: {
+    flex: 1,
+    height: 45,
+    color: theme.colors.text,
+    fontSize: 15,
+  },
+  showPasswordButton: {
+    padding: theme.spacing.sm,
   },
   inputError: {
     borderColor: theme.colors.error,
   },
-  inputIcon: {
-    padding: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: theme.colors.text,
-    padding: theme.spacing.md,
-  },
-  passwordToggle: {
-    padding: 10,
-  },
   errorText: {
     color: theme.colors.error,
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4,
+    fontSize: 11,
+    marginTop: theme.spacing.xs / 2,
   },
-  forgotPasswordLink: {
+  forgotPasswordButton: {
     alignSelf: 'flex-end',
-    marginBottom: 16,
+    marginBottom: theme.spacing.sm,
   },
   forgotPasswordText: {
-    fontSize: 14,
     color: theme.colors.primary,
-  },
-  submitButtonWrapper: {
-    marginTop: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
-    overflow: 'hidden',
-    ...theme.shadows.small,
+    fontSize: 13,
   },
   submitButton: {
+    borderRadius: theme.borderRadius.md,
+    overflow: 'hidden',
+    marginTop: theme.spacing.sm,
+    ...theme.shadows.small,
+  },
+  gradientButton: {
     paddingVertical: theme.spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   submitButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
   },
-  toggleButton: {
-    marginTop: theme.spacing.lg,
+  toggleModeButton: {
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
     alignItems: 'center',
   },
-  toggleButtonText: {
+  toggleModeText: {
     color: theme.colors.primary,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });

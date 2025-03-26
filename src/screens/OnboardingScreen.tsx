@@ -107,7 +107,10 @@ export default function OnboardingScreen() {
   const completeOnboarding = async () => {
     try {
       await AsyncStorage.setItem('hasCompletedOnboarding', 'true');
-      navigation.navigate('Auth' as never);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Auth' as never }],
+      });
     } catch (error) {
       console.error('Error saving onboarding state:', error);
     }

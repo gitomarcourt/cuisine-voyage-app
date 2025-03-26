@@ -21,11 +21,16 @@ import { useAuthContext } from '../contexts/AuthContext';
 import { theme } from '../styles/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRecipes } from '../hooks/useRecipes';
+import { Recipe } from '../types/models';
+import { useToast } from '../components/Toast';
+import { useConfirmDialog } from '../components/ConfirmDialog';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { signOut, updateProfile, userProfile, resetPassword, updatePassword } = useAuthContext();
   const { recipes, loading: loadingRecipes } = useRecipes();
+  const { showToast } = useToast();
+  const { showConfirmDialog } = useConfirmDialog();
 
   // États pour l'édition du profil
   const [isEditing, setIsEditing] = React.useState(false);
@@ -39,9 +44,12 @@ export default function ProfileScreen() {
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   
-  // Récupérer les recettes favorites
+  // Récupérer les recettes favorites en utilisant une vérification supplémentaire
   const favoriteRecipes = React.useMemo(() => {
-    return recipes?.filter(recipe => recipe.is_favorite) || [];
+    return recipes?.filter(recipe => {
+      // Vérification de type sécurisée avec 'as any'
+      return (recipe as any).is_favorite === true;
+    }) || [];
   }, [recipes]);
 
   // Mettre à jour les états lorsque userProfile change
@@ -53,16 +61,34 @@ export default function ProfileScreen() {
 
   // Fonction pour se déconnecter
   const handleSignOut = async () => {
-    const { success } = await signOut();
-    if (!success) {
-      Alert.alert('Erreur', 'Un problème est survenu lors de la déconnexion.');
-    }
+    showConfirmDialog({
+      title: 'Déconnexion',
+      message: 'Êtes-vous sûr de vouloir vous déconnecter ?',
+      confirmText: 'Déconnexion',
+      cancelText: 'Annuler',
+      confirmType: 'danger',
+      icon: 'log-out-outline',
+      onConfirm: async () => {
+        const { success } = await signOut();
+        if (!success) {
+          showToast({
+            type: 'error',
+            message: 'Erreur de déconnexion',
+            description: 'Un problème est survenu lors de la déconnexion.'
+          });
+        }
+      }
+    });
   };
   
   // Fonction pour sauvegarder le profil
   const handleSaveProfile = async () => {
     if (!username.trim()) {
-      Alert.alert('Erreur', 'Le nom d\'utilisateur ne peut pas être vide.');
+      showToast({
+        type: 'error',
+        message: 'Champ requis',
+        description: 'Le nom d\'utilisateur ne peut pas être vide.'
+      });
       return;
     }
     
@@ -73,12 +99,24 @@ export default function ProfileScreen() {
       
       if (success) {
         setIsEditing(false);
-        Alert.alert('Succès', 'Votre profil a été mis à jour avec succès.');
+        showToast({
+          type: 'success',
+          message: 'Profil mis à jour',
+          description: 'Votre profil a été mis à jour avec succès.'
+        });
       } else {
-        Alert.alert('Erreur', error || 'Une erreur est survenue lors de la mise à jour du profil.');
+        showToast({
+          type: 'error',
+          message: 'Erreur',
+          description: error || 'Une erreur est survenue lors de la mise à jour du profil.'
+        });
       }
     } catch (error) {
-      Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour du profil.');
+      showToast({
+        type: 'error',
+        message: 'Erreur',
+        description: 'Une erreur est survenue lors de la mise à jour du profil.'
+      });
       console.error(error);
     } finally {
       setSaving(false);
@@ -91,15 +129,24 @@ export default function ProfileScreen() {
       const { success, error } = await resetPassword(userProfile?.username || '');
       
       if (success) {
-        Alert.alert(
-          'Succès', 
-          'Un email de réinitialisation du mot de passe a été envoyé à votre adresse email.'
-        );
+        showToast({
+          type: 'success',
+          message: 'Email envoyé',
+          description: 'Un email de réinitialisation du mot de passe a été envoyé à votre adresse email.'
+        });
       } else {
-        Alert.alert('Erreur', error || 'Une erreur est survenue lors de la demande de réinitialisation.');
+        showToast({
+          type: 'error',
+          message: 'Erreur',
+          description: error || 'Une erreur est survenue lors de la demande de réinitialisation.'
+        });
       }
     } catch (error) {
-      Alert.alert('Erreur', 'Une erreur est survenue.');
+      showToast({
+        type: 'error',
+        message: 'Erreur',
+        description: 'Une erreur est survenue.'
+      });
       console.error(error);
     }
   };
@@ -108,17 +155,29 @@ export default function ProfileScreen() {
   const handleChangePassword = async () => {
     // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
+      showToast({
+        type: 'warning',
+        message: 'Champs manquants',
+        description: 'Veuillez remplir tous les champs.'
+      });
       return;
     }
     
     if (newPassword !== confirmPassword) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
+      showToast({
+        type: 'error',
+        message: 'Mots de passe différents',
+        description: 'Les mots de passe ne correspondent pas.'
+      });
       return;
     }
     
     if (newPassword.length < 6) {
-      Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 6 caractères.');
+      showToast({
+        type: 'warning',
+        message: 'Mot de passe trop court',
+        description: 'Le mot de passe doit contenir au moins 6 caractères.'
+      });
       return;
     }
     
@@ -132,12 +191,24 @@ export default function ProfileScreen() {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
-        Alert.alert('Succès', 'Votre mot de passe a été modifié avec succès.');
+        showToast({
+          type: 'success',
+          message: 'Mot de passe modifié',
+          description: 'Votre mot de passe a été modifié avec succès.'
+        });
       } else {
-        Alert.alert('Erreur', error || 'Une erreur est survenue lors de la modification du mot de passe.');
+        showToast({
+          type: 'error',
+          message: 'Erreur',
+          description: error || 'Une erreur est survenue lors de la modification du mot de passe.'
+        });
       }
     } catch (error) {
-      Alert.alert('Erreur', 'Une erreur est survenue.');
+      showToast({
+        type: 'error',
+        message: 'Erreur',
+        description: 'Une erreur est survenue.'
+      });
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -147,7 +218,10 @@ export default function ProfileScreen() {
   return (
     <ScrollView 
       style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[
+        styles.contentContainer, 
+        { paddingBottom: insets.bottom + 90 }
+      ]}
     >
       <StatusBar barStyle="dark-content" />
       

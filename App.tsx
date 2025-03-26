@@ -5,16 +5,22 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-url-polyfill/auto';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { ToastProvider } from './src/components/Toast';
+import { ConfirmDialogProvider } from './src/components/ConfirmDialog';
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <NavigationContainer>
-          <StatusBar style="dark" />
-          <AppNavigator />
-        </NavigationContainer>
-      </AuthProvider>
+      <NavigationContainer>
+        <AuthProvider>
+          <ToastProvider>
+            <ConfirmDialogProvider>
+              <StatusBar style="dark" />
+              <AppNavigator />
+            </ConfirmDialogProvider>
+          </ToastProvider>
+        </AuthProvider>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }

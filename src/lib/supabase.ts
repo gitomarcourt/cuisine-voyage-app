@@ -6,13 +6,12 @@ import { createClient } from '@supabase/supabase-js';
  * Configuration Supabase pour l'authentification et la gestion des données
  * 
  * L'URL et la clé d'API sont spécifiques à votre projet Supabase.
- * Pour un environnement de production, ces valeurs devraient être stockées
- * dans des variables d'environnement (ex: .env) et non en dur dans le code.
+ * Les valeurs sont stockées dans les variables d'environnement (.env)
  */
 
 // Configuration URL et clé anonyme
-const supabaseUrl = 'https://supabase.sortium.fr';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ey AgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://supabase.sortium.fr';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlLWRlbW8iLCJpYXQiOjE2NDE3NjkyMDAsImV4cCI6MTc5OTUzNTYwMH0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
 
 // Création du client Supabase avec options pour React Native
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
