@@ -36,7 +36,7 @@ app = Flask(__name__)
 
 # Configuration Supabase
 supabase = create_client(
-    os.getenv('SUPABASE_URL', 'https://supabase.sortium.fr'),
+    os.getenv('SUPABASE_URL'),
     os.getenv('SUPABASE_SERVICE_KEY')
 )
 
@@ -62,23 +62,82 @@ def require_api_key(f):
     decorated_function.__name__ = f.__name__
     return decorated_function
 
-def execute_sql(sql_query):
-    """Exécute le SQL sur Supabase"""
+def execute_sql(recipe_data):
+    """Exécute le SQL pour insérer les données de la recette dans Supabase"""
     try:
-        # Séparer les requêtes SQL (chaque requête se termine par un point-virgule)
-        queries = [q.strip() for q in sql_query.split(';') if q.strip()]
+        # 1. Insertion de la recette
+        logger.info("Insertion de la recette dans la base de données...")
         
-        for query in queries:
-            if query.lower().startswith('insert into recipes'):
-                # Pour la table recipes, on récupère l'ID inséré
-                result = supabase.table('recipes').insert(query).execute()
-                recipe_id = result.data[0]['id']
-                logger.info(f"Recette insérée avec l'ID: {recipe_id}")
-            elif query:
-                # Pour les autres tables, on exécute simplement la requête
-                supabase.table(query.split()[2]).insert(query).execute()
+        recipe = recipe_data['recipe']
+        recipe_insert = supabase.table('recipes').insert({
+            'title': recipe['title'],
+            'country': recipe['country'],
+            'region': recipe['region'],
+            'description': recipe['description'],
+            'preparation_time': recipe['preparation_time'],
+            'cooking_time': recipe['cooking_time'],
+            'difficulty': recipe['difficulty'],
+            'servings': recipe['servings'],
+            'is_premium': recipe['is_premium'],
+            'image_url': recipe['image_url'],
+            'latitude': recipe['latitude'],
+            'longitude': recipe['longitude'],
+            'story_intro': recipe['story_intro'],
+            'story_intro_audio_url': recipe['story_intro_audio_url']
+        }).execute()
         
+        if not recipe_insert.data or len(recipe_insert.data) == 0:
+            raise Exception("Erreur lors de l'insertion de la recette")
+            
+        recipe_id = recipe_insert.data[0]['id']
+        logger.info(f"Recette insérée avec l'ID: {recipe_id}")
+        
+        # 2. Insertion des ingrédients
+        logger.info("Insertion des ingrédients...")
+        for ingredient in recipe_data['ingredients']:
+            supabase.table('ingredients').insert({
+                'recipe_id': recipe_id,
+                'name': ingredient['name'],
+                'quantity': ingredient['quantity'],
+                'unit': ingredient['unit']
+            }).execute()
+        
+        # 3. Insertion des étapes
+        logger.info("Insertion des étapes...")
+        for step in recipe_data['steps']:
+            supabase.table('steps').insert({
+                'recipe_id': recipe_id,
+                'order_number': step['order_number'],
+                'title': step['title'],
+                'description': step['description'],
+                'story_content': step['story_content'],
+                'story_audio_url': step['story_audio_url'],
+                'story_background_image_url': step['story_background_image_url']
+            }).execute()
+        
+        # 4. Insertion de la playlist
+        logger.info("Insertion de la playlist...")
+        supabase.table('playlists').insert({
+            'recipe_id': recipe_id,
+            'title': recipe_data['playlist']['title'],
+            'description': recipe_data['playlist']['description'],
+            'spotify_link': recipe_data['playlist']['spotify_link'],
+            'image_url': recipe_data['playlist']['image_url']
+        }).execute()
+        
+        # 5. Insertion de l'accord de vin
+        logger.info("Insertion de l'accord de vin...")
+        supabase.table('wine_pairings').insert({
+            'recipe_id': recipe_id,
+            'name': recipe_data['wine_pairing']['name'],
+            'description': recipe_data['wine_pairing']['description'],
+            'region': recipe_data['wine_pairing']['region'],
+            'image_url': recipe_data['wine_pairing']['image_url']
+        }).execute()
+        
+        logger.info("Toutes les données ont été insérées avec succès.")
         return True
+        
     except Exception as e:
         logger.error(f"Erreur lors de l'exécution SQL: {str(e)}")
         raise e
@@ -105,78 +164,108 @@ def handle_generate_recipe():
         if not recipe_name:
             logger.error("Nom de recette manquant dans la requête")
             return jsonify({'error': 'Le nom de la recette est requis'}), 400
+            
+        # Vérifier si le client préfère une réponse JSON au lieu de SSE
+        accept_header = request.headers.get('Accept', '')
+        if 'application/json' in accept_header:
+            # Mode simplifié - pas de streaming, juste une réponse JSON
+            try:
+                logger.info("Mode simplifié demandé (JSON)")
+                recipe_data = generate_recipe(recipe_name)
+                execute_sql(recipe_data)
+                return jsonify({
+                    'success': True,
+                    'message': 'Recette générée et sauvegardée avec succès !'
+                })
+            except Exception as e:
+                logger.error(f"Erreur lors de la génération (mode simplifié): {str(e)}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e),
+                    'details': 'Erreur lors de la génération de la recette'
+                }), 500
 
+        # Mode streaming avec Server-Sent Events (SSE)
         def generate():
             try:
                 # Étape 1: Initialisation
-                yield json.dumps(generate_step_response(
+                yield 'data: ' + json.dumps(generate_step_response(
                     step=1,
                     status='loading',
                     message='Recherche de la recette...'
-                )) + '\n'
+                )) + '\n\n'
 
                 # Étape 2: Génération de la recette
-                yield json.dumps(generate_step_response(
+                yield 'data: ' + json.dumps(generate_step_response(
                     step=2,
                     status='loading',
                     message='Génération des informations de base...'
-                )) + '\n'
+                )) + '\n\n'
                 
-                sql_query = generate_recipe(recipe_name)
+                recipe_data = generate_recipe(recipe_name)
                 
                 # Étape 3: Ajout des ingrédients
-                yield json.dumps(generate_step_response(
+                yield 'data: ' + json.dumps(generate_step_response(
                     step=3,
                     status='loading',
                     message='Ajout des ingrédients...'
-                )) + '\n'
+                )) + '\n\n'
 
                 # Étape 4: Ajout des instructions
-                yield json.dumps(generate_step_response(
+                yield 'data: ' + json.dumps(generate_step_response(
                     step=4,
                     status='loading',
                     message='Ajout des instructions de préparation...'
-                )) + '\n'
+                )) + '\n\n'
 
                 # Étape 5: Génération de l'histoire
-                yield json.dumps(generate_step_response(
+                yield 'data: ' + json.dumps(generate_step_response(
                     step=5,
                     status='loading',
                     message='Création de l\'histoire immersive...'
-                )) + '\n'
+                )) + '\n\n'
 
                 # Étape 6: Accord de vin
-                yield json.dumps(generate_step_response(
+                yield 'data: ' + json.dumps(generate_step_response(
                     step=6,
                     status='loading',
                     message='Recherche de l\'accord de vin parfait...'
-                )) + '\n'
+                )) + '\n\n'
 
                 # Étape 7: Playlist
-                yield json.dumps(generate_step_response(
+                yield 'data: ' + json.dumps(generate_step_response(
                     step=7,
                     status='loading',
                     message='Création de la playlist d\'ambiance...'
-                )) + '\n'
+                )) + '\n\n'
 
                 # Sauvegarde dans Supabase
-                execute_sql(sql_query)
+                logger.info("Sauvegarde dans Supabase...")
+                execute_sql(recipe_data)
 
                 # Étape finale: Succès
-                yield json.dumps(generate_step_response(
+                yield 'data: ' + json.dumps(generate_step_response(
                     step=8,
                     status='completed',
                     message='Recette générée et sauvegardée avec succès !'
-                )) + '\n'
+                )) + '\n\n'
 
             except Exception as e:
                 logger.error(f"Erreur lors de la génération: {str(e)}")
-                yield json.dumps({
+                yield 'data: ' + json.dumps({
                     'error': str(e),
                     'details': 'Erreur lors de la génération de la recette'
-                }) + '\n'
+                }) + '\n\n'
 
-        return Response(generate(), mimetype='text/event-stream')
+        # Configuration plus permissive des CORS pour les SSE
+        response = Response(generate(), mimetype='text/event-stream')
+        response.headers['Cache-Control'] = 'no-cache'
+        response.headers['Connection'] = 'keep-alive'
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-API-Key, Accept'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['X-Accel-Buffering'] = 'no'
+        return response
         
     except Exception as e:
         logger.error(f"Erreur serveur: {str(e)}")

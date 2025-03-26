@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ImageBackground, Dimensions, ActivityIndicator, StatusBar, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ImageBackground, Dimensions, ActivityIndicator, StatusBar, Animated, Easing, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import RecipeCard from '../components/RecipeCard';
@@ -73,12 +73,36 @@ const inspirations = [
 
 export default function HomeScreen() {
   const navigation = useNavigation<HomeScreenNavigationProp>();
-  const { recipes, loading: loadingRecipes, error: recipesError } = useRecipes();
-  const { categories, loading: loadingCategories, error: categoriesError } = useCategories();
-  const { inspirations, loading: loadingInspirations, error: inspirationsError } = useInspirations();
+  const { recipes, loading: loadingRecipes, error: recipesError, refreshRecipes } = useRecipes();
+  const { categories, loading: loadingCategories, error: categoriesError, refreshCategories } = useCategories();
+  const { inspirations, loading: loadingInspirations, error: inspirationsError, refreshInspirations } = useInspirations();
   
   const scrollY = React.useRef(new Animated.Value(0)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const [refreshing, setRefreshing] = React.useState(false);
+  
+  // Animation pour le loader
+  const loadingAnim = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    if (loadingRecipes || loadingCategories || loadingInspirations || refreshing) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(loadingAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(loadingAnim, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      loadingAnim.setValue(0);
+    }
+  }, [loadingRecipes, loadingCategories, loadingInspirations, refreshing]);
   
   // Récupérer les insets de la zone de sécurité
   const insets = useSafeAreaInsets();
@@ -111,18 +135,66 @@ export default function HomeScreen() {
     extrapolate: 'clamp',
   });
 
+  // Convertir les couleurs en hexadécimal
+  const primaryColorNumber = parseInt(theme.colors.primary.replace('#', '0x'));
+  const secondaryColorNumber = parseInt(theme.colors.secondary.replace('#', '0x'));
+  const accentColorNumber = parseInt(theme.colors.accent.replace('#', '0x'));
+
+  // Fonction pour gérer le rafraîchissement
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    
+    try {
+      await Promise.all([
+        refreshRecipes && refreshRecipes(),
+        refreshCategories && refreshCategories(),
+        refreshInspirations && refreshInspirations()
+      ]);
+    } catch (error) {
+      console.error('Erreur lors du rafraîchissement:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshRecipes, refreshCategories, refreshInspirations]);
+
+  // Composant d'animation pour le chargement
+  const AnimatedLoader = () => (
+    <Animated.View
+      style={{
+        opacity: loadingAnim,
+        transform: [{ scale: loadingAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }],
+        height: 50
+      }}
+    >
+      <ActivityIndicator size="large" color={theme.colors.primary} />
+    </Animated.View>
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
       
       <Animated.ScrollView 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          (loadingRecipes || loadingCategories || loadingInspirations) && { paddingTop: 20 }
+        ]}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false }
         )}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor="#ffffff"
+            progressViewOffset={40}
+          />
+        }
       >
         {/* En-tête avec image d'arrière-plan */}
         <View style={styles.headerWrapper}>
@@ -186,7 +258,10 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Cuisines du monde</Text>
           
           {loadingCategories ? (
-            <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginVertical: 20 }} />
+            <View style={[styles.loadingContainer, styles.sectionLoadingContainer]}>
+              <AnimatedLoader />
+              <Text style={styles.loadingText}>Chargement des catégories...</Text>
+            </View>
           ) : categoriesError ? (
             <Text style={styles.errorText}>Impossible de charger les catégories</Text>
           ) : (
@@ -202,7 +277,10 @@ export default function HomeScreen() {
                 <TouchableOpacity 
                   key={category.id} 
                   style={styles.categoryItem}
-                  onPress={() => {/* Navigation à implémenter */}}
+                  onPress={() => navigation.navigate('AllRecipes', { 
+                    categoryId: category.id,
+                    categoryName: category.name 
+                  })}
                 >
                   <BlurView intensity={30} tint="light" style={styles.categoryBlur}>
                     <MaterialCommunityIcons 
@@ -222,14 +300,14 @@ export default function HomeScreen() {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recettes en vedette</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('AllRecipes')}>
               <Text style={styles.seeAllText}>Voir tout</Text>
             </TouchableOpacity>
           </View>
           
           {loadingRecipes ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
+            <View style={[styles.loadingContainer, styles.sectionLoadingContainer]}>
+              <AnimatedLoader />
               <Text style={styles.loadingText}>Chargement des recettes...</Text>
             </View>
           ) : recipesError ? (
@@ -243,7 +321,7 @@ export default function HomeScreen() {
             </View>
           ) : (
             <View style={styles.featuredContainer}>
-              {recipes.slice(0, 3).map((recipe, index) => (
+              {recipes.slice(0, 5).map((recipe, index) => (
                 <Animated.View 
                   key={recipe.id}
                   style={{
@@ -269,6 +347,16 @@ export default function HomeScreen() {
                   />
                 </Animated.View>
               ))}
+              
+              {recipes.length > 5 && (
+                <TouchableOpacity 
+                  style={styles.showMoreButton}
+                  onPress={() => navigation.navigate('AllRecipes')}
+                >
+                  <Text style={styles.showMoreButtonText}>Voir plus de recettes</Text>
+                  <Ionicons name="arrow-forward" size={16} color={theme.colors.primary} />
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -283,9 +371,15 @@ export default function HomeScreen() {
           </View>
           
           {loadingInspirations ? (
-            <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginVertical: 20 }} />
+            <View style={[styles.loadingContainer, styles.sectionLoadingContainer]}>
+              <AnimatedLoader />
+              <Text style={styles.loadingText}>Chargement des inspirations...</Text>
+            </View>
           ) : inspirationsError ? (
-            <Text style={styles.errorText}>Impossible de charger les inspirations</Text>
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle-outline" size={40} color={theme.colors.primary} />
+              <Text style={styles.errorText}>Impossible de charger les inspirations</Text>
+            </View>
           ) : (
             <ScrollView 
               horizontal 
@@ -600,14 +694,20 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
   },
   loadingContainer: {
-    padding: theme.spacing.xl,
+    padding: theme.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
+    height: 100,
+    marginVertical: 10,
+  },
+  sectionLoadingContainer: {
+    backgroundColor: 'rgba(211, 197, 184, 0.1)',
+    borderRadius: theme.borderRadius.lg,
   },
   loadingText: {
-    marginTop: theme.spacing.md,
+    marginTop: 5,
     color: theme.colors.textLight,
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'System',
     fontWeight: 'normal' as const,
   },
@@ -655,5 +755,23 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  showMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.full,
+    marginTop: theme.spacing.md,
+    alignSelf: 'center',
+  },
+  showMoreButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: theme.colors.primary,
+    marginRight: theme.spacing.sm,
+    fontFamily: 'System',
   },
 });

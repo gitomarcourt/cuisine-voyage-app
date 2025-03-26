@@ -1,137 +1,188 @@
-import * as React from 'react';
+import React, { useEffect, useState } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { TouchableOpacity, Image, StyleSheet, View, Text } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuthContext } from '../contexts/AuthContext';
-import { theme } from '../styles/theme';
-import { BlurView } from 'expo-blur';
+import { useColorScheme, ActivityIndicator, View, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Écrans
 import HomeScreen from '../screens/HomeScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
-// Vérifier si le WorldMapScreen existe ou est déjà importé dans le projet
-import WorldMapScreen from '../screens/WorldMapScreen';
+import ExploreScreen from '../screens/ExploreScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import FavoritesScreen from '../screens/FavoritesScreen';
+import AllRecipesScreen from '../screens/AllRecipesScreen';
 import AuthScreen from '../screens/AuthScreen';
-import TestSupabaseScreen from '../screens/TestSupabaseScreen';
-import StoryModeScreen from '../screens/StoryModeScreen';
-import { RecipeGeneratorScreen } from '../screens/RecipeGeneratorScreen';
-// Autres imports de screens
+import OnboardingScreen from '../screens/OnboardingScreen';
 
-// Définition du type pour les paramètres de navigation
+// Contextes
+import { useAuthContext } from '../contexts/AuthContext';
+import { theme } from '../styles/theme';
+
+// Définition des types de navigation
 export type RootStackParamList = {
-  Home: undefined;
-  RecipeDetail: { id: number, title: string };
-  WorldMap: undefined;
-  Profile: undefined;
+  Main: undefined;
   Auth: undefined;
-  TestSupabase: undefined;
-  StoryMode: { id: number, title: string };
-  RecipeGenerator: undefined;
+  Onboarding: undefined;
+  RecipeDetail: { recipeId: number };
+  AllRecipes: undefined;
+};
+
+type MainTabParamList = {
+  Accueil: undefined;
+  Explorer: undefined;
+  Favoris: undefined;
+  Profil: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<MainTabParamList>();
 
-export function AppNavigator() {
-  const { session } = useAuthContext();
-  
+function MainTabs() {
   return (
-    <Stack.Navigator
-      initialRouteName="Home"
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: theme.colors.background,
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: 'rgba(211, 197, 184, 0.3)',
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName: React.ComponentProps<typeof Ionicons>['name'] = 'help-outline';
+
+          if (route.name === 'Accueil') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Explorer') {
+            iconName = focused ? 'compass' : 'compass-outline';
+          } else if (route.name === 'Favoris') {
+            iconName = focused ? 'heart' : 'heart-outline';
+          } else if (route.name === 'Profil') {
+            iconName = focused ? 'person' : 'person-outline';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
         },
-        headerTitleStyle: {
-          fontSize: 20,
-          fontWeight: 'bold',
-          color: theme.colors.text,
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textLight,
+        tabBarStyle: {
+          paddingVertical: 5,
+          height: 60,
+          backgroundColor: 'white',
+          borderTopColor: '#E8E8E8',
         },
-        headerTintColor: theme.colors.primary,
-      }}
+        tabBarLabelStyle: {
+          fontSize: 12,
+          marginBottom: 5,
+        },
+        headerShown: false,
+      })}
     >
-      <Stack.Screen 
-        name="Home" 
-        component={HomeScreen} 
-        options={{ 
-          headerShown: false
+      <Tab.Screen name="Accueil" component={HomeScreen} />
+      <Tab.Screen name="Explorer" component={ExploreScreen} />
+      <Tab.Screen name="Favoris" component={FavoritesScreen} />
+      <Tab.Screen name="Profil" component={ProfileScreen} />
+    </Tab.Navigator>
+  );
+}
+
+export default function AppNavigator() {
+  const { session, loading } = useAuthContext();
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Vérifier si l'utilisateur a déjà complété l'onboarding
+  useEffect(() => {
+    async function checkOnboardingStatus() {
+      try {
+        const value = await AsyncStorage.getItem('hasCompletedOnboarding');
+        setHasCompletedOnboarding(value === 'true');
+      } catch (error) {
+        console.error('Erreur lors de la vérification du statut d\'onboarding:', error);
+      } finally {
+        setIsInitializing(false);
+      }
+    }
+
+    checkOnboardingStatus();
+  }, []);
+
+  // Afficher un loader pendant l'initialisation
+  if (loading || isInitializing) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <NavigationContainer>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          cardStyle: { backgroundColor: 'white' },
+          headerStyle: {
+            backgroundColor: 'white',
+            elevation: 0,
+            shadowOpacity: 0,
+            borderBottomWidth: 0,
+          },
+          headerTitleStyle: {
+            fontWeight: 'bold',
+            fontSize: 18,
+          },
+          headerTintColor: theme.colors.text,
         }}
-      />
-      <Stack.Screen 
-        name="RecipeDetail" 
-        component={RecipeDetailScreen}
-        options={({ route }) => ({ 
-          title: route.params?.title || 'Détail de la recette',
-          headerBackTitleVisible: false,
-        })}
-      />
-      <Stack.Screen 
-        name="WorldMap" 
-        component={WorldMapScreen} 
-        options={{ 
-          title: 'Explorer le monde',
-          headerShown: false
-        }}
-      />
-      <Stack.Screen 
-        name="Profile" 
-        component={ProfileScreen} 
-        options={{ title: 'Mon profil' }}
-      />
-      <Stack.Screen 
-        name="Auth" 
-        component={AuthScreen} 
-        options={{ 
-          title: 'Connexion',
-          headerShown: false
-        }}
-      />
-      <Stack.Screen 
-        name="TestSupabase" 
-        component={TestSupabaseScreen} 
-        options={{ title: 'Test Supabase' }}
-      />
-      <Stack.Screen 
-        name="StoryMode" 
-        component={StoryModeScreen} 
-        options={{ 
-          headerShown: false, // Cacher l'en-tête pour une expérience plus immersive
-          // La propriété 'presentation' n'est pas disponible dans cette version
-        }}
-      />
-      <Stack.Screen 
-        name="RecipeGenerator" 
-        component={RecipeGeneratorScreen} 
-        options={{ 
-          title: 'Créer une recette',
-          presentation: 'modal',
-        }}
-      />
-      {/* Autres écrans */}
-    </Stack.Navigator>
+        initialRouteName={
+          hasCompletedOnboarding === false 
+            ? 'Onboarding' 
+            : session ? 'Main' : 'Auth'
+        }
+      >
+        {/* Écran d'onboarding */}
+        <Stack.Screen 
+          name="Onboarding" 
+          component={OnboardingScreen} 
+          options={{ headerShown: false }}
+        />
+        
+        {/* Écran d'authentification */}
+        <Stack.Screen 
+          name="Auth" 
+          component={AuthScreen} 
+          options={{ headerShown: false }}
+        />
+        
+        {/* Écrans principaux */}
+        <Stack.Screen name="Main" component={MainTabs} />
+        
+        {/* Écrans détaillés */}
+        <Stack.Screen 
+          name="RecipeDetail" 
+          component={RecipeDetailScreen} 
+          options={{ 
+            headerShown: true,
+            headerTitle: '',
+            headerTransparent: true,
+            headerBackTitle: ' ',
+          }}
+        />
+        
+        <Stack.Screen 
+          name="AllRecipes" 
+          component={AllRecipesScreen} 
+          options={{ 
+            headerShown: true,
+            headerTitle: 'Toutes les recettes',
+            headerBackTitle: 'Retour',
+          }}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  headerButton: {
-    marginRight: 12,
-    borderRadius: theme.borderRadius.full,
-    overflow: 'hidden',
-  },
-  blurButton: {
-    padding: 8,
-    borderRadius: theme.borderRadius.full,
+  loaderContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  profileImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
+    backgroundColor: 'white',
   },
 });

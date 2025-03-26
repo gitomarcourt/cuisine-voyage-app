@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Category } from '../types/models';
 
@@ -16,46 +16,51 @@ export function useCategories() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchCategories() {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchCategories = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('id', { ascending: true });
         
-        const { data, error } = await supabase
-          .from('categories')
-          .select('*')
-          .order('id', { ascending: true });
-          
-        if (error) {
-          throw error;
-        }
-
-        if (!data || data.length === 0) {
-          console.log('Aucune catégorie trouvée, utilisation des catégories par défaut');
-          return; // On garde les catégories par défaut
-        }
-        
-        // Transformer les données pour s'assurer que tous les champs requis sont présents
-        const formattedCategories: Category[] = data.map(category => ({
-          id: category.id,
-          name: category.name || 'Sans nom',
-          icon: category.icon || 'food',
-          created_at: category.created_at
-        }));
-        
-        setCategories(formattedCategories);
-      } catch (err) {
-        console.error('Erreur lors de la récupération des catégories:', err);
-        setError(err instanceof Error ? err.message : 'Une erreur est survenue lors de la récupération des catégories');
-        // On garde les catégories par défaut en cas d'erreur
-      } finally {
-        setLoading(false);
+      if (error) {
+        throw error;
       }
-    }
 
-    fetchCategories();
+      if (!data || data.length === 0) {
+        console.log('Aucune catégorie trouvée, utilisation des catégories par défaut');
+        return; // On garde les catégories par défaut
+      }
+      
+      // Transformer les données pour s'assurer que tous les champs requis sont présents
+      const formattedCategories: Category[] = data.map(category => ({
+        id: category.id,
+        name: category.name || 'Sans nom',
+        icon: category.icon || 'food',
+        created_at: category.created_at
+      }));
+      
+      setCategories(formattedCategories);
+    } catch (err) {
+      console.error('Erreur lors de la récupération des catégories:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue lors de la récupération des catégories');
+      // On garde les catégories par défaut en cas d'erreur
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { categories, loading, error };
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  // Fonction pour rafraîchir les catégories
+  const refreshCategories = useCallback(async () => {
+    return fetchCategories();
+  }, [fetchCategories]);
+
+  return { categories, loading, error, refreshCategories };
 } 

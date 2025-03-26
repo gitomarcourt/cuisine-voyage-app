@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions, ImageBackground, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions, ImageBackground, ActivityIndicator, Linking, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { RecipeDetailScreenRouteProp } from '../types/navigation';
@@ -32,6 +32,51 @@ export default function RecipeDetailScreen() {
   // Navigation vers l'expérience immersive
   const startStoryMode = () => {
     navigation.navigate('StoryMode', { id, title });
+  };
+
+  // Fonction pour ouvrir un lien Spotify
+  const openSpotifyLink = async (spotifyLink: string) => {
+    try {
+      // Si le lien commence par "spotify:", c'est un URI Spotify (format spotify:playlist:123456)
+      // Sinon, c'est probablement une URL web (format https://open.spotify.com/...)
+      let url = spotifyLink;
+      
+      // Si c'est une URL web, on vérifie si elle commence par http
+      if (!spotifyLink.startsWith('spotify:') && !spotifyLink.startsWith('http')) {
+        // Si c'est un ID de playlist, on le convertit en URI Spotify
+        if (spotifyLink.match(/^[a-zA-Z0-9]{22}$/)) {
+          url = `spotify:playlist:${spotifyLink}`;
+        } else {
+          // Format URI complet (spotify:playlist:ID)
+          url = spotifyLink;
+        }
+      }
+
+      // Vérifier si l'application Spotify est installée
+      const canOpen = await Linking.canOpenURL(url);
+      
+      if (canOpen) {
+        // Ouvrir l'application Spotify
+        await Linking.openURL(url);
+      } else {
+        // Si l'application n'est pas installée, ouvrir dans le navigateur
+        const webUrl = spotifyLink.startsWith('spotify:') 
+          ? `https://open.spotify.com/${spotifyLink.replace('spotify:', '').replace(':', '/')}` 
+          : spotifyLink;
+          
+        if (webUrl.startsWith('http')) {
+          await Linking.openURL(webUrl);
+        } else {
+          await Linking.openURL(`https://open.spotify.com/playlist/${webUrl}`);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'ouverture du lien Spotify:', error);
+      Alert.alert(
+        'Erreur',
+        'Impossible d\'ouvrir Spotify. Veuillez vérifier que l\'application est installée ou que vous avez une connexion internet.'
+      );
+    }
   };
 
   if (loading) {
@@ -210,7 +255,10 @@ export default function RecipeDetailScreen() {
                 <Text style={styles.playlistTitle}>{playlist.title}</Text>
                 <Text style={styles.playlistDescription}>{playlist.description}</Text>
                 {playlist.spotify_link && (
-                  <TouchableOpacity style={styles.playlistButton}>
+                  <TouchableOpacity 
+                    style={styles.playlistButton}
+                    onPress={() => openSpotifyLink(playlist.spotify_link || '')}
+                  >
                     <Text style={styles.playlistButtonText}>Écouter sur Spotify</Text>
                   </TouchableOpacity>
                 )}
