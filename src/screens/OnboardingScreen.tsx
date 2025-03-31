@@ -24,26 +24,26 @@ const slides = [
   {
     id: '1',
     title: 'Découvrez des recettes du monde entier',
-    description: 'Explorez des cuisines authentiques de tous les continents, préparées avec amour et tradition',
+    description: 'Explorez notre carte interactive et trouvez des plats authentiques de diverses cultures culinaires autour du globe',
     icon: 'earth',
   },
   {
     id: '2',
-    title: 'Une expérience immersive',
-    description: 'Plongez dans l\'histoire de chaque plat avec nos récits immersifs et nos ambiances sonores',
-    icon: 'book-open-page-variant',
+    title: 'Générez des recettes personnalisées',
+    description: 'Créez des recettes uniques adaptées à vos goûts, à vos contraintes alimentaires ou avec les ingrédients disponibles dans votre frigo',
+    icon: 'robot-happy',
   },
   {
     id: '3',
-    title: 'Cuisinez avec confiance',
-    description: 'Des instructions détaillées et des conseils pour réussir chaque recette, même les plus complexes',
-    icon: 'chef-hat',
+    title: 'Gestion pratique des courses',
+    description: 'Créez et sauvegardez des listes de courses avec estimation des prix pour faciliter votre organisation',
+    icon: 'cart',
   },
   {
     id: '4',
-    title: 'Votre carnet de voyage culinaire',
-    description: 'Collectionnez vos expériences et suivez votre progression dans un voyage culinaire unique',
-    icon: 'map-marker-path',
+    title: 'Votre collection culinaire',
+    description: 'Enregistrez vos recettes préférées et suivez votre aventure à travers les différentes cuisines du monde',
+    icon: 'bookmark-multiple',
   },
 ];
 
