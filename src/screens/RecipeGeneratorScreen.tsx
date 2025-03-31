@@ -19,7 +19,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { theme } from '../styles/theme';
@@ -43,13 +43,17 @@ type DishType = 'plat_italien' | 'plat_francais' | 'plat_asiatique' | 'plat_indi
 
 export default function RecipeGeneratorScreen() {
   const navigation = useNavigation<RecipeGeneratorScreenNavigationProp>();
+  const route = useRoute<any>();
   const insets = useSafeAreaInsets();
   const { session } = useAuthContext();
   const { showConfirmDialog } = useConfirmDialog();
   const { showToast } = useToast();
   
+  // Récupérer les paramètres de navigation s'ils existent
+  const params = route.params || {};
+  
   // État pour la génération
-  const [recipeName, setRecipeName] = useState('');
+  const [recipeName, setRecipeName] = useState(params.recipeName || '');
   const [isGenerating, setIsGenerating] = useState(false);
   const [recipeId, setRecipeId] = useState<number | null>(null);
   const [expoPushToken, setExpoPushToken] = useState<string>('');
@@ -57,16 +61,20 @@ export default function RecipeGeneratorScreen() {
   const popupScale = useRef(new Animated.Value(0)).current;
   const popupOpacity = useRef(new Animated.Value(0)).current;
   
+  // Vérifier si on est en mode "vider le frigo"
+  const isFridgeMode = params.options?.mode === 'fridge';
+  const fridgeIngredients = params.options?.ingredients || [];
+  
   // Type de plat fixé à 'plat_principal'
   const dishType: DishType = 'plat_principal';
   
   // Contraintes diététiques
-  const [isVegetarian, setIsVegetarian] = useState(false);
-  const [isVegan, setIsVegan] = useState(false);
-  const [isGlutenFree, setIsGlutenFree] = useState(false);
-  const [isDairyFree, setIsDairyFree] = useState(false);
-  const [allergies, setAllergies] = useState('');
-  const [excludedIngredients, setExcludedIngredients] = useState('');
+  const [isVegetarian, setIsVegetarian] = useState(params.options?.isVegetarian || false);
+  const [isVegan, setIsVegan] = useState(params.options?.isVegan || false);
+  const [isGlutenFree, setIsGlutenFree] = useState(params.options?.isGlutenFree || false);
+  const [isDairyFree, setIsDairyFree] = useState(params.options?.isDairyFree || false);
+  const [allergies, setAllergies] = useState(params.options?.allergies || '');
+  const [excludedIngredients, setExcludedIngredients] = useState(params.options?.excludedIngredients || '');
   const [maxCalories, setMaxCalories] = useState('');
   
   // Animations
@@ -159,95 +167,133 @@ export default function RecipeGeneratorScreen() {
   
   // Génération complète de la recette en une seule étape
   const generateCompleteRecipe = async () => {
-    if (!recipeName.trim()) {
-      showToast({
-        type: 'error',
-        message: 'Erreur',
-        description: 'Veuillez saisir le nom d\'une recette.',
-        duration: 3000
+    if (!session) {
+      showConfirmDialog({
+        title: 'Connexion requise',
+        message: 'Vous devez être connecté pour générer une recette. Souhaitez-vous vous connecter maintenant?',
+        confirmText: 'Se connecter',
+        cancelText: 'Annuler',
+        onConfirm: () => navigation.navigate('Auth'),
+        onCancel: () => {},
+        icon: 'log-in-outline'
       });
       return;
     }
-    
+
     setIsGenerating(true);
     
     try {
-      // Afficher le pop-up de confirmation
-      handleConfirmation();
-
-      // Préparation des préférences diététiques
-      const dietaryRestrictions = [];
-      if (isVegetarian) dietaryRestrictions.push('vegetarien');
-      if (isVegan) dietaryRestrictions.push('vegan');
-      if (isGlutenFree) dietaryRestrictions.push('sans_gluten');
-      if (isDairyFree) dietaryRestrictions.push('sans_lactose');
+      await registerForPushNotificationsAsync().then(token => {
+        if (token) {
+          setExpoPushToken(token);
+        }
+      });
       
-      // Préparation des allergies
-      const allergiesList = allergies
-        .split(',')
-        .map(item => item.trim())
-        .filter(item => item);
+      // Préparer les données pour l'API
+      const requestData: any = {
+        dish_type: "Plat principal"
+      };
       
-      // Préparation des ingrédients exclus
-      const excludedList = excludedIngredients
-        .split(',')
-        .map(item => item.trim())
-        .filter(item => item);
+      // Préparation des contraintes diététiques
+      const dietaryConstraints: string[] = [];
+      if (isVegetarian) dietaryConstraints.push("vegetarien");
+      if (isVegan) dietaryConstraints.push("vegan");
+      if (isGlutenFree) dietaryConstraints.push("sans gluten");
+      if (isDairyFree) dietaryConstraints.push("sans lactose");
       
+      // Si mode frigo, on utilise les ingrédients disponibles
+      if (isFridgeMode && fridgeIngredients.length > 0) {
+        requestData.recipe_name = "";
+        requestData.available_ingredients = fridgeIngredients;
+        requestData.dietary_constraints = dietaryConstraints;
+      } else {
+        requestData.recipe_name = recipeName;
+        requestData.dietary_constraints = dietaryConstraints;
+        // Pour le mode normal, on peut aussi ajouter d'autres infos si disponibles
+        // requestData.country = "France";
+        // requestData.region = "";
+        // requestData.description = "";
+      }
+      
+      // Ajouter les allergies si spécifiées
+      if (allergies.trim()) {
+        const allergiesList = allergies
+          .split(',')
+          .map((item: string) => item.trim())
+          .filter((item: string) => item.length > 0);
+        
+        // Ajouter les allergies aux contraintes diététiques
+        allergiesList.forEach((allergie: string) => {
+          dietaryConstraints.push(`allergie ${allergie}`);
+        });
+      }
+      
+      // Ajouter les ingrédients exclus si spécifiés
+      if (excludedIngredients.trim()) {
+        const excludedList = excludedIngredients
+          .split(',')
+          .map((item: string) => item.trim())
+          .filter((item: string) => item.length > 0);
+        
+        // On peut ajouter une propriété excluded_ingredients si nécessaire
+        requestData.excluded_ingredients = excludedList;
+      }
+      
+      // Ajouter les calories max si spécifiées
+      if (maxCalories.trim() && !isNaN(parseInt(maxCalories))) {
+        const maxCaloriesValue = parseInt(maxCalories);
+        dietaryConstraints.push(`max_calories ${maxCaloriesValue}`);
+      }
+      
+      console.log('Envoi des données:', JSON.stringify(requestData));
+      
+      // Faire la requête API
       const response = await fetch(`${API_URL}/api/v1/recipes/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-API-Key': API_KEY,
         },
-        body: JSON.stringify({
-          recipe_name: recipeName,
-          dish_type: dishType,
-          dietary_restrictions: dietaryRestrictions,
-          allergies: allergiesList,
-          excluded_ingredients: excludedList,
-          max_calories: maxCalories ? parseInt(maxCalories, 10) : null,
-          push_token: expoPushToken,
-        }),
+        body: JSON.stringify(requestData),
       });
       
-      const data = await response.json();
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur serveur (${response.status}): ${errorText}`);
+      }
       
-      if (data.success && data.recipe_id) {
-        setRecipeId(data.recipe_id);
+      const result = await response.json();
+      console.log('Résultat API:', result);
+      
+      if (result && result.success && result.recipe_id) {
+        setRecipeId(result.recipe_id);
+        
+        // Afficher la confirmation
+        handleConfirmation();
         
         // Envoyer une notification locale
         await sendLocalNotification(
           'Recette générée !',
-          `Votre recette "${recipeName}" est prête à être consultée.`
+          `Votre recette${requestData.recipe_name ? ` "${requestData.recipe_name}"` : ""} est prête à être consultée.`
         );
         
-        showConfirmDialog({
-          title: 'Succès',
-          message: 'Votre recette est prête!',
-          confirmText: 'Voir la recette',
-          cancelText: 'OK',
-          icon: 'checkmark-circle',
-          confirmType: 'success',
-          onConfirm: () => {
-            if (data.recipe_id) {
-              navigation.navigate('RecipeDetail', {
-                id: data.recipe_id,
-                title: recipeName,
-              });
-            }
-          }
+        showToast({
+          type: 'success',
+          message: 'Recette générée avec succès',
+          description: 'Vous pouvez maintenant la consulter',
+          duration: 5000,
         });
       } else {
-        throw new Error(data.message || 'Erreur lors de la génération de la recette');
+        throw new Error('La réponse de l\'API ne contient pas d\'ID de recette ou indique une erreur');
       }
     } catch (error) {
-      console.error('Erreur:', error);
+      console.error('Erreur lors de la génération de la recette:', error);
+      
       showToast({
         type: 'error',
-        message: 'Erreur',
-        description: 'Impossible de générer la recette. Veuillez réessayer plus tard.',
-        duration: 3000
+        message: 'Erreur de génération',
+        description: error instanceof Error ? error.message : 'Une erreur est survenue lors de la génération de la recette.',
+        duration: 5000,
       });
     } finally {
       setIsGenerating(false);

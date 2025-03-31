@@ -206,6 +206,7 @@ CREATE TABLE IF NOT EXISTS shopping_lists (
   servings INTEGER NOT NULL,
   total_recipes INTEGER NOT NULL,
   recipe_ids TEXT,
+  total_estimated_price DECIMAL(10, 2) DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

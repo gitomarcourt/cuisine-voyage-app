@@ -67,16 +67,30 @@ export const recipeGeneratorService = {
         message: 'Génération des informations de la recette...'
       });
 
-      console.log('📡 Appel du serveur pour la génération...');
+      // Log détaillé de la configuration de l'API et du payload
+      console.log('📡 Configuration API:', {
+        baseUrl: API_CONFIG.baseUrl,
+        apiKeyLength: API_CONFIG.apiKey ? API_CONFIG.apiKey.length : 0,
+        apiKeyFirstChars: API_CONFIG.apiKey ? API_CONFIG.apiKey.substring(0, 3) + '...' : 'non définie'
+      });
+      
+      const payload = { recipeName: recipeName };
+      console.log('📡 Payload envoyé:', JSON.stringify(payload, null, 2));
+      
+      console.log('📡 Appel du serveur pour la génération à l\'URL:', `${API_CONFIG.baseUrl}/generate-recipe`);
+      
       const generateResponse = await fetch(`${API_CONFIG.baseUrl}/generate-recipe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-API-Key': API_CONFIG.apiKey,
+          'Accept': 'application/json', // Précise que nous attendons du JSON pour éviter le streaming
         },
-        body: JSON.stringify({ recipeName: recipeName })
+        body: JSON.stringify(payload)
       });
 
+      console.log('📡 Statut de la réponse:', generateResponse.status, generateResponse.statusText);
+      
       if (!generateResponse.ok) {
         const errorData = await generateResponse.json().catch(() => ({ error: 'Erreur inconnue' }));
         console.error('❌ Erreur du serveur:', errorData);

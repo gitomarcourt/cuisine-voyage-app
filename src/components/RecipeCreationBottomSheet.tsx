@@ -21,9 +21,91 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { useNavigation } from '@react-navigation/native';
+import { useToast } from './Toast';
+import { useConfirmDialog } from './ConfirmDialog';
 
 const { width, height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.75;
+
+// Composant de popup de confirmation
+const PopupConfirmation = ({ 
+  visible, 
+  onClose 
+}: { 
+  visible: boolean, 
+  onClose: () => void 
+}) => {
+  const scale = useRef(new Animated.Value(0.5)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(scale, {
+          toValue: 1,
+          tension: 70,
+          friction: 10,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.spring(scale, {
+          toValue: 0.5,
+          tension: 70,
+          friction: 10,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <View style={styles.popupOverlay}>
+      <Animated.View
+        style={[
+          styles.popupContainer,
+          {
+            opacity,
+            transform: [{ scale }],
+          },
+        ]}
+      >
+        <BlurView intensity={80} tint="light" style={styles.popupBlur}>
+          <View style={styles.popupContent}>
+            <View style={styles.popupIconContainer}>
+              <MaterialIcons name="restaurant-menu" size={40} color={theme.colors.primary} />
+            </View>
+            <Text style={styles.popupTitle}>Génération en cours</Text>
+            <Text style={styles.popupText}>
+              Votre recette est en train d'être générée !{'\n'}
+              Elle sera disponible dans quelques minutes.
+            </Text>
+            <TouchableOpacity
+              style={styles.popupButton}
+              onPress={onClose}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.popupButtonText}>C'est compris !</Text>
+            </TouchableOpacity>
+          </View>
+        </BlurView>
+      </Animated.View>
+    </View>
+  );
+};
 
 interface RecipeCreationBottomSheetProps {
   visible: boolean;
@@ -38,6 +120,8 @@ interface RecipeOptions {
   isDairyFree: boolean;
   allergies: string;
   excludedIngredients: string;
+  mode?: "normal" | "fridge";
+  ingredients?: string[];
 }
 
 export default function RecipeCreationBottomSheet({
@@ -49,6 +133,20 @@ export default function RecipeCreationBottomSheet({
   const [recipeName, setRecipeName] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPersonnalisationExpanded, setIsPersonnalisationExpanded] = useState(false);
+  const [isFridgeMode, setIsFridgeMode] = useState(false);
+  const [fridgeIngredients, setFridgeIngredients] = useState('');
+  const [currentIngredient, setCurrentIngredient] = useState('');
+  const [ingredientsList, setIngredientsList] = useState<string[]>([]);
+  
+  // Référence pour le TextInput des ingrédients
+  const ingredientInputRef = useRef<TextInput>(null);
+  
+  // Nouvelle état pour le popup de confirmation
+  const [showConfirmationPopup, setShowConfirmationPopup] = useState(false);
+  
+  // Hooks pour les toasts et dialogues
+  const { showToast } = useToast();
+  const navigation = useNavigation();
   
   // Options de la recette
   const [isVegetarian, setIsVegetarian] = useState(false);
@@ -76,6 +174,10 @@ export default function RecipeCreationBottomSheet({
   
   const resetForm = () => {
     setRecipeName('');
+    setIsFridgeMode(false);
+    setFridgeIngredients('');
+    setCurrentIngredient('');
+    setIngredientsList([]);
     setIsVegetarian(false);
     setIsVegan(false);
     setIsGlutenFree(false);
@@ -83,6 +185,7 @@ export default function RecipeCreationBottomSheet({
     setAllergies('');
     setExcludedIngredients('');
     setIsPersonnalisationExpanded(false);
+    setShowConfirmationPopup(false);
   };
   
   const openSheet = () => {
@@ -120,8 +223,33 @@ export default function RecipeCreationBottomSheet({
     });
   };
   
+  const addIngredient = () => {
+    if (currentIngredient.trim()) {
+      // Conserver une référence au TextInput avant de changer l'état
+      const inputRef = ingredientInputRef.current;
+      
+      setIngredientsList(prevList => [...prevList, currentIngredient.trim()]);
+      setCurrentIngredient('');
+      
+      // Utiliser requestAnimationFrame pour s'assurer que l'état a été mis à jour avant de redonner le focus
+      requestAnimationFrame(() => {
+        // S'assurer que l'input existe toujours
+        if (inputRef) {
+          inputRef.focus();
+        }
+      });
+    }
+  };
+  
+  const removeIngredient = (index: number) => {
+    const newList = [...ingredientsList];
+    newList.splice(index, 1);
+    setIngredientsList(newList);
+  };
+  
   const handleSubmit = () => {
-    if (!recipeName.trim()) return;
+    if (isFridgeMode && ingredientsList.length === 0) return;
+    if (!isFridgeMode && !recipeName.trim()) return;
     
     setIsGenerating(true);
     
@@ -134,12 +262,32 @@ export default function RecipeCreationBottomSheet({
       excludedIngredients
     };
     
+    // Ajouter les ingrédients du frigo si en mode frigo
+    const submitData = {
+      recipeName: isFridgeMode ? "Recette avec mes ingrédients" : recipeName,
+      options,
+      mode: isFridgeMode ? "fridge" as const : "normal" as const,
+      ingredients: isFridgeMode ? ingredientsList : []
+    };
+    
     // Simuler un petit délai pour montrer le chargement
     setTimeout(() => {
-      onSubmit(recipeName, options);
+      // Au lieu de naviguer vers un autre écran, afficher le popup
       setIsGenerating(false);
-      closeSheet();
-    }, 500);
+      setShowConfirmationPopup(true);
+      
+      // Appeler silencieusement onSubmit pour déclencher le processus en arrière-plan
+      onSubmit(submitData.recipeName, {
+        ...options,
+        mode: submitData.mode,
+        ingredients: submitData.ingredients
+      });
+    }, 1500);
+  };
+  
+  const handleConfirmationClose = () => {
+    setShowConfirmationPopup(false);
+    closeSheet();
   };
   
   const togglePersonnalisation = () => {
@@ -221,6 +369,53 @@ export default function RecipeCreationBottomSheet({
               </TouchableOpacity>
             </View>
             
+            {/* Toggle entre les deux modes */}
+            <View style={styles.modeSwitchContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  !isFridgeMode && styles.activeModeButton
+                ]}
+                onPress={() => setIsFridgeMode(false)}
+              >
+                <Ionicons 
+                  name="restaurant-outline" 
+                  size={18} 
+                  color={!isFridgeMode ? "white" : theme.colors.text} 
+                />
+                <Text 
+                  style={[
+                    styles.modeButtonText,
+                    !isFridgeMode && styles.activeModeButtonText
+                  ]}
+                >
+                  Recette spécifique
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.modeButton,
+                  isFridgeMode && styles.activeModeButton
+                ]}
+                onPress={() => setIsFridgeMode(true)}
+              >
+                <Ionicons 
+                  name="nutrition-outline" 
+                  size={18} 
+                  color={isFridgeMode ? "white" : theme.colors.text} 
+                />
+                <Text 
+                  style={[
+                    styles.modeButtonText,
+                    isFridgeMode && styles.activeModeButtonText
+                  ]}
+                >
+                  Je vide mon frigo
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
               style={{ flex: 1 }}
@@ -231,36 +426,91 @@ export default function RecipeCreationBottomSheet({
                 contentContainerStyle={styles.scrollViewContent}
                 showsVerticalScrollIndicator={false}
               >
-                {/* Nom de la recette */}
-                <View style={styles.section}>
-                  <View style={styles.sectionTitleContainer}>
-                    <MaterialIcons name="restaurant-menu" size={22} color={theme.colors.primary} />
-                    <Text style={styles.sectionTitle}>QUELLE RECETTE VOULEZ-VOUS CRÉER ?</Text>
-                  </View>
-                  <Text style={styles.sectionDescription}>
-                    Entrez le nom du plat que vous souhaitez créer
-                  </Text>
-                  
-                  <View style={styles.inputContainer}>
-                    <Ionicons name="fast-food-outline" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      value={recipeName}
-                      onChangeText={setRecipeName}
-                      placeholder="Ex: Poulet au curry, Tiramisu..."
-                      placeholderTextColor={theme.colors.textMuted}
-                      maxLength={50}
-                    />
-                    {recipeName ? (
+                {/* Section qui change selon le mode */}
+                {isFridgeMode ? (
+                  <View style={styles.section}>
+                    <View style={styles.sectionTitleContainer}>
+                      <MaterialIcons name="kitchen" size={22} color={theme.colors.primary} />
+                      <Text style={styles.sectionTitle}>MES INGRÉDIENTS DISPONIBLES</Text>
+                    </View>
+                    <Text style={styles.sectionDescription}>
+                      Listez les ingrédients que vous avez dans votre frigo
+                    </Text>
+                    
+                    <View style={styles.inputContainer}>
+                      <Ionicons name="nutrition-outline" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
+                      <TextInput
+                        ref={ingredientInputRef}
+                        style={styles.input}
+                        value={currentIngredient}
+                        onChangeText={setCurrentIngredient}
+                        placeholder="Ex: tomates, œufs, fromage..."
+                        placeholderTextColor={theme.colors.textMuted}
+                        maxLength={50}
+                        onSubmitEditing={addIngredient}
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                      />
                       <TouchableOpacity 
-                        style={styles.clearButton}
-                        onPress={() => setRecipeName('')}
+                        style={styles.addButton}
+                        onPress={() => {
+                          addIngredient();
+                          // Force le focus immédiatement après l'action
+                          ingredientInputRef.current?.focus();
+                        }}
+                        disabled={!currentIngredient.trim()}
                       >
-                        <Feather name="x-circle" size={16} color={theme.colors.textMuted} />
+                        <Ionicons name="add" size={20} color={theme.colors.primary} />
                       </TouchableOpacity>
-                    ) : null}
+                    </View>
+                    
+                    {ingredientsList.length > 0 && (
+                      <View style={styles.ingredientsListContainer}>
+                        {ingredientsList.map((ingredient, index) => (
+                          <View key={index} style={styles.ingredientChip}>
+                            <Text style={styles.ingredientChipText}>{ingredient}</Text>
+                            <TouchableOpacity
+                              style={styles.removeIngredientButton}
+                              onPress={() => removeIngredient(index)}
+                            >
+                              <Ionicons name="close-circle" size={16} color="white" />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
-                </View>
+                ) : (
+                  <View style={styles.section}>
+                    <View style={styles.sectionTitleContainer}>
+                      <MaterialIcons name="restaurant-menu" size={22} color={theme.colors.primary} />
+                      <Text style={styles.sectionTitle}>NOMMEZ VOTRE PLAT</Text>
+                    </View>
+                    <Text style={styles.sectionDescription}>
+                      Entrez le nom du plat que vous souhaitez créer
+                    </Text>
+                    
+                    <View style={styles.inputContainer}>
+                      <Ionicons name="fast-food-outline" size={20} color={theme.colors.textMuted} style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.input}
+                        value={recipeName}
+                        onChangeText={setRecipeName}
+                        placeholder="Ex: Poulet au curry, Tiramisu..."
+                        placeholderTextColor={theme.colors.textMuted}
+                        maxLength={50}
+                      />
+                      {recipeName ? (
+                        <TouchableOpacity 
+                          style={styles.clearButton}
+                          onPress={() => setRecipeName('')}
+                        >
+                          <Feather name="x-circle" size={16} color={theme.colors.textMuted} />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+                )}
                 
                 {/* Préférences et contraintes - Section collapsible */}
                 <View style={styles.section}>
@@ -481,10 +731,10 @@ export default function RecipeCreationBottomSheet({
                 <TouchableOpacity
                   style={[
                     styles.generateButton,
-                    (!recipeName.trim() || isGenerating) && styles.disabledButton,
+                    ((!recipeName.trim() && !isFridgeMode) || (isFridgeMode && ingredientsList.length === 0) || isGenerating) && styles.disabledButton,
                   ]}
                   onPress={handleSubmit}
-                  disabled={!recipeName.trim() || isGenerating}
+                  disabled={(!recipeName.trim() && !isFridgeMode) || (isFridgeMode && ingredientsList.length === 0) || isGenerating}
                   activeOpacity={0.8}
                 >
                   <LinearGradient
@@ -503,7 +753,7 @@ export default function RecipeCreationBottomSheet({
                     ) : (
                       <>
                         <Text style={styles.generateButtonText}>
-                          Générer ma recette
+                          {isFridgeMode ? "Générer avec mes ingrédients" : "Générer ma recette"}
                         </Text>
                         <MaterialIcons name="restaurant" size={24} color="#fff" />
                       </>
@@ -515,6 +765,12 @@ export default function RecipeCreationBottomSheet({
           </SafeAreaView>
         </BlurView>
       </Animated.View>
+      
+      {/* Popup de confirmation */}
+      <PopupConfirmation
+        visible={showConfirmationPopup}
+        onClose={handleConfirmationClose}
+      />
     </View>
   );
 }
@@ -742,5 +998,142 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  modeSwitchContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginVertical: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeModeButton: {
+    backgroundColor: theme.colors.primary,
+  },
+  modeButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6,
+    color: theme.colors.text,
+  },
+  activeModeButtonText: {
+    color: 'white',
+  },
+  addButton: {
+    paddingHorizontal: 12,
+  },
+  ingredientsListContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  ingredientChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  ingredientChipText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+    marginRight: 4,
+  },
+  removeIngredientButton: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // Styles pour le popup de confirmation
+  popupOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1100,
+  },
+  popupContainer: {
+    width: '80%',
+    maxWidth: 400,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  popupBlur: {
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  popupContent: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  popupIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  popupTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: theme.colors.primary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  popupText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: theme.colors.text,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  popupButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  popupButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

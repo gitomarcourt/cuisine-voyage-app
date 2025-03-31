@@ -9,6 +9,13 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 
+// Import du service de génération de recettes
+import { recipeGeneratorService } from '../services/recipeGenerator';
+
+// Variables d'environnement pour l'API
+const API_URL = 'https://api.sortium.fr';
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY || 'mabpih-peqsak-temmA2';
+
 // Écrans
 import HomeScreen from '../screens/HomeScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
@@ -213,12 +220,86 @@ function MainTabs() {
     }
   };
   
-  const handleRecipeSubmit = (recipeName: string, options: any) => {
-    // Naviguer vers l'écran de génération de recette avec les données pré-remplies
-    navigation.navigate('RecipeGenerator', {
-      recipeName,
-      options
-    });
+  const handleRecipeSubmit = async (recipeName: string, options: any) => {
+    // Utiliser le même format d'API que dans RecipeGeneratorScreen
+    console.log('Demande de génération de recette:', recipeName, options);
+    
+    try {
+      // Préparer les données pour l'API
+      const requestData: any = {
+        dish_type: "Plat principal"
+      };
+      
+      // Préparation des contraintes diététiques
+      const dietaryConstraints: string[] = [];
+      if (options.isVegetarian) dietaryConstraints.push("vegetarien");
+      if (options.isVegan) dietaryConstraints.push("vegan");
+      if (options.isGlutenFree) dietaryConstraints.push("sans gluten");
+      if (options.isDairyFree) dietaryConstraints.push("sans lactose");
+      
+      // Si mode frigo, on utilise les ingrédients disponibles
+      if (options.mode === 'fridge' && options.ingredients && options.ingredients.length > 0) {
+        requestData.recipe_name = "";
+        requestData.available_ingredients = options.ingredients;
+        requestData.dietary_constraints = dietaryConstraints;
+      } else {
+        requestData.recipe_name = recipeName;
+        requestData.dietary_constraints = dietaryConstraints;
+      }
+      
+      // Ajouter les allergies si spécifiées
+      if (options.allergies && options.allergies.trim()) {
+        const allergiesList = options.allergies
+          .split(',')
+          .map((item: string) => item.trim())
+          .filter((item: string) => item.length > 0);
+        
+        // Ajouter les allergies aux contraintes diététiques
+        allergiesList.forEach((allergie: string) => {
+          dietaryConstraints.push(`allergie ${allergie}`);
+        });
+      }
+      
+      // Ajouter les ingrédients exclus si spécifiés
+      if (options.excludedIngredients && options.excludedIngredients.trim()) {
+        const excludedList = options.excludedIngredients
+          .split(',')
+          .map((item: string) => item.trim())
+          .filter((item: string) => item.length > 0);
+        
+        requestData.excluded_ingredients = excludedList;
+      }
+      
+      console.log('Envoi des données à l\'API:', JSON.stringify(requestData));
+      
+      // Faire la requête API
+      const response = await fetch(`${API_URL}/api/v1/recipes/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': API_KEY,
+        },
+        body: JSON.stringify(requestData),
+      });
+      
+      console.log('Statut de la réponse:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur serveur (${response.status}): ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('Résultat API:', result);
+      
+      if (result && result.success && result.recipe_id) {
+        console.log('Recette générée avec succès, ID:', result.recipe_id);
+      } else {
+        throw new Error('La réponse de l\'API ne contient pas d\'ID de recette ou indique une erreur');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la génération de la recette:', error);
+    }
   };
   
   return (

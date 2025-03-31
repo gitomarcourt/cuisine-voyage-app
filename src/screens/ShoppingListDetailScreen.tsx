@@ -25,6 +25,7 @@ interface ShoppingListItem {
   quantity: string;
   unit: string;
   is_checked: boolean;
+  estimated_price?: number;
 }
 
 interface CategoryGroup {
@@ -37,6 +38,7 @@ interface ShoppingListData {
   ingredients: CategoryGroup[];
   total_recipes: number;
   servings: number;
+  total_estimated_price?: number;
 }
 
 type AnimatedValuesType = {
@@ -213,13 +215,23 @@ export default function ShoppingListDetailScreen() {
     try {
       // Formatter le contenu de la liste à partager
       let content = `🛒 Liste de courses: ${listName}\n`;
-      content += `👨‍🍳 ${shoppingList.total_recipes} recettes • 👥 ${shoppingList.servings} personnes\n\n`;
+      content += `👨‍🍳 ${shoppingList.total_recipes} recettes • 👥 ${shoppingList.servings} personnes`;
+      
+      if (shoppingList.total_estimated_price) {
+        content += ` • 💰 ${shoppingList.total_estimated_price.toFixed(2)} €`;
+      }
+      
+      content += `\n\n`;
       
       shoppingList.ingredients.forEach((category: CategoryGroup) => {
         content += `\n▪️ ${category.category.toUpperCase()}\n`;
         category.items.forEach((item: ShoppingListItem) => {
           const checkMark = checkedItems[`${category.category}-${item.name}`] ? "✅ " : "◻️ ";
-          content += `${checkMark}${item.name} - ${item.quantity} ${item.unit || ""}\n`;
+          let itemContent = `${checkMark}${item.name} - ${item.quantity} ${item.unit || ""}`;
+          if ('estimated_price' in item && item.estimated_price) {
+            itemContent += ` (${item.estimated_price.toFixed(2)} €)`;
+          }
+          content += `${itemContent}\n`;
         });
       });
       
@@ -248,14 +260,23 @@ export default function ShoppingListDetailScreen() {
           <Text style={styles.headerTitle}>{listName}</Text>
           <Text style={styles.headerSubtitle}>
             {shoppingList.total_recipes} recettes • {shoppingList.servings} personnes
+            {shoppingList.total_estimated_price ? ` • ${shoppingList.total_estimated_price.toFixed(2)} €` : ''}
           </Text>
         </View>
-        <TouchableOpacity 
-          style={styles.shareButton}
-          onPress={shareList}
-        >
-          <Ionicons name="share-outline" size={24} color={theme.colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.iconButton}
+            onPress={viewRecipes}
+          >
+            <Ionicons name="restaurant-outline" size={22} color={theme.colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.iconButton}
+            onPress={shareList}
+          >
+            <Ionicons name="share-outline" size={22} color={theme.colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
       
       {/* Barre de progression */}
@@ -398,44 +419,47 @@ export default function ShoppingListDetailScreen() {
                             {
                               borderColor: animatedValues[itemKey].interpolate({
                                 inputRange: [0, 1],
-                                outputRange: ['rgba(0,0,0,0.2)', theme.colors.primary]
+                                outputRange: ['rgba(0,0,0,0.2)', theme.colors.success]
                               })
                             }
                           ]}
                         >
                           {isChecked && (
-                            <Ionicons name="checkmark" size={14} color="white" />
+                            <Animated.View style={styles.checkboxInner}>
+                              <Ionicons name="checkmark" size={12} color="#fff" />
+                            </Animated.View>
                           )}
                         </Animated.View>
                       </View>
                       
                       <View style={styles.ingredientInfo}>
-                        <Text 
-                          style={[
-                            styles.ingredientName,
-                            isChecked && styles.checkedText
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.name}
-                        </Text>
-                        <Text 
-                          style={[
-                            styles.ingredientQuantity,
-                            isChecked && styles.checkedText
-                          ]}
-                        >
+                        <View style={styles.ingredientNameRow}>
+                          <Text 
+                            style={[
+                              styles.ingredientName, 
+                              isChecked && styles.ingredientNameChecked
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {item.name}
+                          </Text>
+                          {item.estimated_price !== undefined && (
+                            <Text style={styles.priceText}>
+                              {item.estimated_price.toFixed(2)} €
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={styles.ingredientQuantity}>
                           {item.quantity} {item.unit}
                         </Text>
                       </View>
                       
-                      <View style={styles.swipeIndicator}>
-                        <Ionicons 
-                          name="chevron-back" 
-                          size={16} 
-                          color="rgba(0,0,0,0.3)" 
-                        />
-                      </View>
+                      <Ionicons 
+                        name="chevron-forward" 
+                        size={18} 
+                        color={theme.colors.textMuted} 
+                        style={styles.ingredientArrow}
+                      />
                     </Pressable>
                   </Animated.View>
                 );
@@ -536,7 +560,12 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginTop: 2,
   },
-  shareButton: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -657,19 +686,35 @@ const styles = StyleSheet.create({
   ingredientInfo: {
     flex: 1,
   },
+  ingredientNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flex: 1,
+  },
   ingredientName: {
     fontSize: 15,
     fontWeight: '500',
     color: theme.colors.text,
     marginBottom: 2,
   },
+  ingredientNameChecked: {
+    textDecorationLine: 'line-through',
+    color: theme.colors.textMuted,
+  },
+  priceText: {
+    fontSize: 14,
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
   ingredientQuantity: {
     fontSize: 13,
     color: theme.colors.textMuted,
   },
-  checkedText: {
-    textDecorationLine: 'line-through',
-    color: theme.colors.textMuted,
+  ingredientArrow: {
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   swipeBackground: {
     position: 'absolute',
@@ -681,9 +726,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  swipeIndicator: {
-    padding: 4,
-    alignItems: 'center',
+  checkboxInner: {
+    position: 'absolute',
+    top: 2,
+    left: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     justifyContent: 'center',
+    alignItems: 'center',
   },
 }); 
