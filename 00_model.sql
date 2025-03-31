@@ -160,3 +160,37 @@ CREATE TABLE experience_media (
   caption text,
   created_at timestamp with time zone default now()
 );
+
+-- Création de la table des défis
+CREATE TABLE IF NOT EXISTS challenges (
+  id SERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  imageUrl TEXT NOT NULL,
+  endDate DATE NOT NULL,
+  participants INTEGER DEFAULT 0,
+  category TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- Création de la table des ingrédients de saison
+CREATE TABLE IF NOT EXISTS seasonal_ingredients (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  imageUrl TEXT NOT NULL,
+  season TEXT NOT NULL,
+  origin TEXT NOT NULL,
+  benefits JSONB NOT NULL,
+  relatedRecipes JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Création de la table des recettes favorites
+CREATE TABLE IF NOT EXISTS favorite_recipes (
+  id SERIAL PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  recipe_id BIGINT REFERENCES recipes(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, recipe_id)
+);

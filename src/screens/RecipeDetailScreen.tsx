@@ -5,7 +5,10 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { RecipeDetailScreenRouteProp } from '../types/navigation';
 import { theme } from '../styles/theme';
 import { useRecipes, RecipeDetails } from '../hooks/useRecipes';
+import { useFavorites } from '../hooks/useFavorites';
 import { Ingredient, Step } from '../types/models';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuthContext } from '../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -14,9 +17,12 @@ export default function RecipeDetailScreen() {
   const navigation = useNavigation<any>();
   const { id, title } = route.params;
   const { getRecipeDetails } = useRecipes();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const { session } = useAuthContext();
   const [recipeDetails, setRecipeDetails] = React.useState<RecipeDetails | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'ingredients' | 'preparation'>('ingredients');
+  const [favoriteLoading, setFavoriteLoading] = React.useState(false);
 
   React.useEffect(() => {
     async function loadRecipeDetails() {
@@ -28,6 +34,32 @@ export default function RecipeDetailScreen() {
 
     loadRecipeDetails();
   }, [id]);
+
+  // Gestion des favoris
+  const handleToggleFavorite = async () => {
+    if (!session) {
+      // Rediriger vers la page de connexion si l'utilisateur n'est pas connecté
+      Alert.alert(
+        "Connexion requise",
+        "Vous devez être connecté pour ajouter des recettes à vos favoris.",
+        [
+          { text: "Annuler", style: "cancel" },
+          { text: "Se connecter", onPress: () => navigation.navigate('Auth') }
+        ]
+      );
+      return;
+    }
+
+    setFavoriteLoading(true);
+    try {
+      await toggleFavorite(id);
+    } catch (error) {
+      console.error("Erreur lors de la modification des favoris:", error);
+      Alert.alert("Erreur", "Impossible de modifier les favoris. Veuillez réessayer.");
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
 
   // Navigation vers l'expérience immersive
   const startStoryMode = () => {
@@ -105,6 +137,7 @@ export default function RecipeDetailScreen() {
   
   // Vérifier si on peut activer le mode immersif
   const hasStoryMode = recipe.story_intro && recipe.story_intro.length > 0;
+  const isRecipeFavorite = isFavorite(id);
 
   return (
     <View style={styles.container}>
@@ -113,7 +146,7 @@ export default function RecipeDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
       >
-        {/* Hero Image */}
+        {/* Hero Image with Favorite Button */}
         <View style={styles.heroContainer}>
           <Image 
             source={{ uri: recipe.image_url || 'https://images.unsplash.com/photo-1512058564366-18510be2db19?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80' }} 
@@ -121,6 +154,22 @@ export default function RecipeDetailScreen() {
           />
           
           <View style={styles.heroOverlay} />
+          
+          <TouchableOpacity 
+            style={styles.favoriteButton}
+            onPress={handleToggleFavorite}
+            disabled={favoriteLoading}
+          >
+            {favoriteLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons 
+                name={isRecipeFavorite ? "heart" : "heart-outline"} 
+                size={28} 
+                color={isRecipeFavorite ? theme.colors.error : "#fff"} 
+              />
+            )}
+          </TouchableOpacity>
           
           <View style={styles.heroContent}>
             <View style={styles.countryTagContainer}>
@@ -616,5 +665,22 @@ const styles = StyleSheet.create({
   },
   bottomSpace: {
     height: theme.spacing.xl,
+  },
+  favoriteButton: {
+    position: 'absolute',
+    top: theme.spacing.md,
+    right: theme.spacing.md,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
   },
 }); 
