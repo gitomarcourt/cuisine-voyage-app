@@ -24,8 +24,17 @@ import { useRecipes } from '../hooks/useRecipes';
 import { Recipe } from '../types/models';
 import { useToast } from '../components/Toast';
 import { useConfirmDialog } from '../components/ConfirmDialog';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../navigation/AppNavigator';
+
+type ProfileScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'Main'
+>;
 
 export default function ProfileScreen() {
+  const navigation = useNavigation<ProfileScreenNavigationProp>();
   const insets = useSafeAreaInsets();
   const { signOut, updateProfile, userProfile, resetPassword, updatePassword } = useAuthContext();
   const { recipes, loading: loadingRecipes } = useRecipes();
@@ -304,6 +313,23 @@ export default function ProfileScreen() {
         </View>
       </BlurView>
       
+      {/* Bouton d'ajout de recette */}
+      <TouchableOpacity
+        style={styles.addRecipeButton}
+        onPress={() => navigation.navigate('RecipeGenerator')}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={[theme.colors.primary, theme.colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.addRecipeGradient}
+        >
+          <Ionicons name="add-outline" size={22} color="white" />
+          <Text style={styles.addRecipeText}>Créer une recette</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+      
       {/* Options du compte */}
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Paramètres du compte</Text>
@@ -317,6 +343,20 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.optionContent}>
             <Text style={styles.optionText}>Changer le mot de passe</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textLight} />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.option}
+          onPress={() => navigation.navigate('SavedShoppingLists')}
+        >
+          <View style={styles.optionIconContainer}>
+            <Ionicons name="cart-outline" size={22} color={theme.colors.text} />
+          </View>
+          <View style={styles.optionContent}>
+            <Text style={styles.optionText}>Mes listes de courses</Text>
+            <Text style={styles.optionSubtext}>Consultez vos listes de courses sauvegardées</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={theme.colors.textLight} />
         </TouchableOpacity>
@@ -749,5 +789,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: 'white',
+  },
+  addRecipeButton: {
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+    height: 50,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  addRecipeGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.lg,
+  },
+  addRecipeText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8,
   },
 });

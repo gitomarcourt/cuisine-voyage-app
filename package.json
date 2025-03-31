@@ -35,7 +35,9 @@
     "react-native-screens": "^4.9.2",
     "react-native-svg": "^15.11.2",
     "react-native-url-polyfill": "^2.0.0",
-    "react-navigation": "^5.0.0"
+    "react-navigation": "^5.0.0",
+    "expo-updates": "~0.27.4",
+    "expo-notifications": "~0.29.14"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

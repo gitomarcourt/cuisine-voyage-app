@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
-type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
+type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Main'>;
 
 // Données de démonstration
 const featuredRecipes = [
@@ -439,6 +439,7 @@ export default function HomeScreen() {
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate('RecipeGenerator')}
+        activeOpacity={0.8}
       >
         <LinearGradient
           colors={[theme.colors.primary, theme.colors.accent]}
@@ -446,7 +447,10 @@ export default function HomeScreen() {
           end={{ x: 1, y: 0 }}
           style={styles.fabGradient}
         >
-          <Ionicons name="add" size={30} color="white" />
+          <View style={styles.fabContent}>
+            <Ionicons name="add" size={28} color="white" />
+            <Text style={styles.fabText}>Créer</Text>
+          </View>
         </LinearGradient>
       </TouchableOpacity>
     </View>
@@ -738,23 +742,35 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 25,
     right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 120,
+    height: 50,
+    borderRadius: 25,
     overflow: 'hidden',
-    elevation: 5,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    zIndex: 100,
   },
   fabGradient: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  fabContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 5,
   },
   showMoreButton: {
     flexDirection: 'row',

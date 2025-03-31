@@ -19,12 +19,15 @@ create table recipes (
   servings integer not null,
   is_premium boolean default false,
   image_url text,
+  image_data text,
   story_intro text,
   story_intro_audio_url text,
   latitude numeric,
   longitude numeric,
   created_at timestamp with time zone default now(),
-  category_id bigint REFERENCES categories(id)
+  category_id bigint REFERENCES categories(id),
+  calories integer,
+  total_time integer
 );
 
 create table ingredients (
@@ -193,4 +196,44 @@ CREATE TABLE IF NOT EXISTS favorite_recipes (
   recipe_id BIGINT REFERENCES recipes(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_id, recipe_id)
+);
+
+-- Table pour les listes de courses des utilisateurs
+CREATE TABLE IF NOT EXISTS shopping_lists (
+  id SERIAL PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  servings INTEGER NOT NULL,
+  total_recipes INTEGER NOT NULL,
+  recipe_ids TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table pour les catégories d'ingrédients dans les listes de courses
+CREATE TABLE IF NOT EXISTS shopping_list_categories (
+  id SERIAL PRIMARY KEY,
+  shopping_list_id INTEGER REFERENCES shopping_lists(id) ON DELETE CASCADE,
+  category TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table pour les ingrédients dans les listes de courses
+CREATE TABLE IF NOT EXISTS shopping_list_items (
+  id SERIAL PRIMARY KEY,
+  shopping_list_id INTEGER REFERENCES shopping_lists(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  quantity TEXT NOT NULL,
+  unit TEXT,
+  category TEXT NOT NULL,
+  is_checked BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table pour lier les recettes aux listes de courses
+CREATE TABLE IF NOT EXISTS shopping_list_recipes (
+  id SERIAL PRIMARY KEY,
+  shopping_list_id INTEGER REFERENCES shopping_lists(id) ON DELETE CASCADE,
+  recipe_id INTEGER REFERENCES recipes(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(shopping_list_id, recipe_id)
 );

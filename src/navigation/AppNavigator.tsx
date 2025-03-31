@@ -7,11 +7,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 
 // Écrans
 import HomeScreen from '../screens/HomeScreen';
 import RecipeDetailScreen from '../screens/RecipeDetailScreen';
-// import ExploreScreen from '../screens/ExploreScreen';
+import ExploreScreen from '../screens/ExploreScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
 import AllRecipesScreen from '../screens/AllRecipesScreen';
@@ -19,55 +20,106 @@ import AuthScreen from '../screens/AuthScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import StoryModeScreen from '../screens/StoryModeScreen';
 import WorldMapScreen from '../screens/WorldMapScreen';
+import RecipeGeneratorScreen from '../screens/RecipeGeneratorScreen';
+import ShoppingListScreen from '../screens/ShoppingListScreen';
+import ShoppingListDetailScreen from '../screens/ShoppingListDetailScreen';
+import SavedShoppingListsScreen from '../screens/SavedShoppingListsScreen';
+import RecipesListScreen from '../screens/RecipesListScreen';
+
+// Composants
+import RecipeCreationBottomSheet from '../components/RecipeCreationBottomSheet';
 
 // Contextes
 import { useAuthContext } from '../contexts/AuthContext';
 import { theme } from '../styles/theme';
 
 // Définition d'un composant de remplacement temporaire pour Explorer
-function TemporaryExploreScreen() {
-  return (
-    <View style={{ 
-      flex: 1, 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      backgroundColor: theme.colors.background
-    }}>
-      <Text style={{ 
-        fontSize: 28, 
-        fontWeight: 'bold', 
-        color: theme.colors.text,
-        marginBottom: 10
-      }}>
-        Explorer
-      </Text>
-      <Text style={{ 
-        fontSize: 16, 
-        color: theme.colors.textMuted,
-        textAlign: 'center',
-        marginHorizontal: 40,
-        lineHeight: 24
-      }}>
-        Fonctionnalité en développement. L'écran d'exploration vous permettra bientôt de découvrir des recettes par région, ingrédients et tendances culinaires.
-      </Text>
-    </View>
-  );
-}
+// function TemporaryExploreScreen() {
+//   return (
+//     <View style={{ 
+//       flex: 1, 
+//       justifyContent: 'center', 
+//       alignItems: 'center', 
+//       backgroundColor: theme.colors.background
+//     }}>
+//       <Text style={{ 
+//         fontSize: 28, 
+//         fontWeight: 'bold', 
+//         color: theme.colors.text,
+//         marginBottom: 10
+//       }}>
+//         Explorer
+//       </Text>
+//       <Text style={{ 
+//         fontSize: 16, 
+//         color: theme.colors.textMuted,
+//         textAlign: 'center',
+//         marginHorizontal: 40,
+//         lineHeight: 24
+//       }}>
+//         Fonctionnalité en développement. L'écran d'exploration vous permettra bientôt de découvrir des recettes par région, ingrédients et tendances culinaires.
+//       </Text>
+//     </View>
+//   );
+// }
 
 // Définition des types de navigation
 export type RootStackParamList = {
-  Main: undefined;
-  Auth: undefined;
   Onboarding: undefined;
-  RecipeDetail: { id: number; title: string };
-  AllRecipes: undefined;
-  StoryMode: { id: number; title: string };
+  Auth: undefined;
+  Main: undefined;
+  RecipeDetails: { id: number };
+  RecipeDetail: { id: number, title?: string };
+  StoryMode: undefined;
   WorldMap: undefined;
+  RecipeGenerator: undefined;
+  AllRecipes: undefined;
+  ShoppingList: {
+    shoppingList: {
+      ingredients: Array<{
+        category: string;
+        items: Array<{
+          name: string;
+          quantity: string;
+          unit: string;
+          category?: string;
+        }>
+      }>;
+      total_recipes: number;
+      servings: number;
+    };
+    recipeIds: number[];
+  };
+  ShoppingListDetail: {
+    shoppingList: {
+      ingredients: Array<{
+        id?: number;
+        category: string;
+        items: Array<{
+          id?: number;
+          name: string;
+          quantity: string;
+          unit: string;
+          is_checked: boolean;
+        }>
+      }>;
+      total_recipes: number;
+      servings: number;
+    };
+    shoppingListId: number;
+    recipeIds: number[];
+    listName: string;
+  };
+  SavedShoppingLists: undefined;
+  RecipesList: {
+    recipeIds: number[];
+    listName: string;
+  };
 };
 
 type MainTabParamList = {
   Accueil: undefined;
-  Explorer: undefined;
+  Recettes: undefined;
   Favoris: undefined;
   Profil: undefined;
 };
@@ -136,6 +188,8 @@ function MainTabs() {
   const hasHomeIndicator = insets.bottom > 0;
   const { width: screenWidth } = Dimensions.get('window');
   const isIOS = Platform.OS === 'ios';
+  const navigation = useNavigation<any>();
+  const [showRecipeCreationSheet, setShowRecipeCreationSheet] = useState(false);
   
   // Calculer la hauteur de la barre de navigation en fonction de l'appareil
   const getTabBarHeight = () => {
@@ -159,28 +213,21 @@ function MainTabs() {
     }
   };
   
+  const handleRecipeSubmit = (recipeName: string, options: any) => {
+    // Naviguer vers l'écran de génération de recette avec les données pré-remplies
+    navigation.navigate('RecipeGenerator', {
+      recipeName,
+      options
+    });
+  };
+  
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarHideOnKeyboard: true,
-        tabBarStyle: {
-          height: getTabBarHeight(),
-          paddingBottom: getTabBarBottomPadding(),
-          backgroundColor: 'white',
-          borderTopWidth: 0,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-          elevation: 10,
-          position: 'absolute',
-        }
-      })}
-      tabBar={props => {
-        return (
-          <View style={{ 
-            flexDirection: 'row', 
+    <>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarHideOnKeyboard: true,
+          tabBarStyle: {
             height: getTabBarHeight(),
             paddingBottom: getTabBarBottomPadding(),
             backgroundColor: 'white',
@@ -191,189 +238,279 @@ function MainTabs() {
             shadowRadius: 8,
             elevation: 10,
             position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-          }}>
-            {props.state.routes.map((route, index) => {
-              const { options } = props.descriptors[route.key];
-              const label =
-                options.tabBarLabel !== undefined
-                  ? options.tabBarLabel
-                  : options.title !== undefined
-                  ? options.title
-                  : route.name;
+          }
+        })}
+        tabBar={props => {
+          return (
+            <View style={{ 
+              flexDirection: 'row', 
+              height: getTabBarHeight(),
+              paddingBottom: getTabBarBottomPadding(),
+              backgroundColor: 'white',
+              borderTopWidth: 0,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -3 },
+              shadowOpacity: 0.08,
+              shadowRadius: 8,
+              elevation: 10,
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+            }}>
+              {/* Première moitié des boutons */}
+              {props.state.routes.slice(0, 2).map((route, index) => {
+                const { options } = props.descriptors[route.key];
+                const label =
+                  options.tabBarLabel !== undefined
+                    ? options.tabBarLabel
+                    : options.title !== undefined
+                    ? options.title
+                    : route.name;
 
-              const isFocused = props.state.index === index;
+                const isFocused = props.state.index === index;
 
-              const onPress = () => {
-                const event = props.navigation.emit({
-                  type: 'tabPress',
-                  target: route.key,
-                  canPreventDefault: true,
-                });
+                const onPress = () => {
+                  const event = props.navigation.emit({
+                    type: 'tabPress',
+                    target: route.key,
+                    canPreventDefault: true,
+                  });
 
-                if (!isFocused && !event.defaultPrevented) {
-                  props.navigation.navigate(route.name);
+                  if (!isFocused && !event.defaultPrevented) {
+                    props.navigation.navigate(route.name);
+                  }
+                };
+
+                const onLongPress = () => {
+                  props.navigation.emit({
+                    type: 'tabLongPress',
+                    target: route.key,
+                  });
+                };
+
+                // Déterminer l'icône en fonction de la route
+                let iconName: React.ComponentProps<typeof Ionicons>['name'] = 'help-outline';
+                
+                if (route.name === 'Accueil') {
+                  iconName = isFocused ? 'home' : 'home-outline';
+                } else if (route.name === 'Recettes') {
+                  iconName = isFocused ? 'restaurant' : 'restaurant-outline';
+                } else if (route.name === 'Favoris') {
+                  iconName = isFocused ? 'heart' : 'heart-outline';
+                } else if (route.name === 'Profil') {
+                  iconName = isFocused ? 'person' : 'person-outline';
                 }
-              };
 
-              const onLongPress = () => {
-                props.navigation.emit({
-                  type: 'tabLongPress',
-                  target: route.key,
-                });
-              };
+                const icon = (
+                  <Ionicons
+                    name={iconName}
+                    size={isFocused ? 24 : 22}
+                    color={isFocused ? theme.colors.primary : theme.colors.textMuted}
+                  />
+                );
 
-              // Déterminer l'icône en fonction de la route
-              let iconName: React.ComponentProps<typeof Ionicons>['name'] = 'help-outline';
+                return (
+                  <TabBarItem
+                    key={route.key}
+                    options={options}
+                    isFocused={isFocused}
+                    label={label.toString()}
+                    onPress={onPress}
+                    onLongPress={onLongPress}
+                    icon={icon}
+                  />
+                );
+              })}
               
-              if (route.name === 'Accueil') {
-                iconName = isFocused ? 'home' : 'home-outline';
-              } else if (route.name === 'Explorer') {
-                iconName = isFocused ? 'compass' : 'compass-outline';
-              } else if (route.name === 'Favoris') {
-                iconName = isFocused ? 'heart' : 'heart-outline';
-              } else if (route.name === 'Profil') {
-                iconName = isFocused ? 'person' : 'person-outline';
-              }
+              {/* Bouton central pour ajouter une recette - avec bottom sheet */}
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+                onPress={() => setShowRecipeCreationSheet(true)}
+                activeOpacity={0.8}
+              >
+                <View style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: 'white',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 3,
+                  elevation: 5,
+                  bottom: hasHomeIndicator ? 22 : 15,
+                }}>
+                  <LinearGradient
+                    colors={[theme.colors.primary, theme.colors.accent]}
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 24,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Ionicons name="add" size={30} color="white" />
+                  </LinearGradient>
+                </View>
+                <Text style={{
+                  fontSize: 10,
+                  fontWeight: '500',
+                  color: theme.colors.textMuted,
+                  marginTop: hasHomeIndicator ? -10 : -5,
+                }}>
+                  Créer
+                </Text>
+              </TouchableOpacity>
+              
+              {/* Seconde moitié des boutons */}
+              {props.state.routes.slice(2, 4).map((route, index) => {
+                const actualIndex = index + 2;
+                const { options } = props.descriptors[route.key];
+                const label =
+                  options.tabBarLabel !== undefined
+                    ? options.tabBarLabel
+                    : options.title !== undefined
+                    ? options.title
+                    : route.name;
 
-              const icon = (
-                <Ionicons
-                  name={iconName}
-                  size={isFocused ? 24 : 22}
-                  color={isFocused ? theme.colors.primary : theme.colors.textMuted}
-                />
-              );
+                const isFocused = props.state.index === actualIndex;
 
-              return (
-                <TabBarItem
-                  key={route.key}
-                  isFocused={isFocused}
-                  options={options}
-                  onPress={onPress}
-                  onLongPress={onLongPress}
-                  label={route.name}
-                  icon={icon}
-                />
-              );
-            })}
-          </View>
-        );
-      }}
-    >
-      <Tab.Screen name="Accueil" component={HomeScreen} />
-      <Tab.Screen name="Explorer" component={TemporaryExploreScreen} />
-      <Tab.Screen name="Favoris" component={FavoritesScreen} />
-      <Tab.Screen name="Profil" component={ProfileScreen} />
-    </Tab.Navigator>
+                const onPress = () => {
+                  const event = props.navigation.emit({
+                    type: 'tabPress',
+                    target: route.key,
+                    canPreventDefault: true,
+                  });
+
+                  if (!isFocused && !event.defaultPrevented) {
+                    props.navigation.navigate(route.name);
+                  }
+                };
+
+                const onLongPress = () => {
+                  props.navigation.emit({
+                    type: 'tabLongPress',
+                    target: route.key,
+                  });
+                };
+
+                // Déterminer l'icône en fonction de la route
+                let iconName: React.ComponentProps<typeof Ionicons>['name'] = 'help-outline';
+                
+                if (route.name === 'Accueil') {
+                  iconName = isFocused ? 'home' : 'home-outline';
+                } else if (route.name === 'Recettes') {
+                  iconName = isFocused ? 'restaurant' : 'restaurant-outline';
+                } else if (route.name === 'Favoris') {
+                  iconName = isFocused ? 'heart' : 'heart-outline';
+                } else if (route.name === 'Profil') {
+                  iconName = isFocused ? 'person' : 'person-outline';
+                }
+
+                const icon = (
+                  <Ionicons
+                    name={iconName}
+                    size={isFocused ? 24 : 22}
+                    color={isFocused ? theme.colors.primary : theme.colors.textMuted}
+                  />
+                );
+
+                return (
+                  <TabBarItem
+                    key={route.key}
+                    options={options}
+                    isFocused={isFocused}
+                    label={label.toString()}
+                    onPress={onPress}
+                    onLongPress={onLongPress}
+                    icon={icon}
+                  />
+                );
+              })}
+            </View>
+          );
+        }}
+      >
+        <Tab.Screen name="Accueil" component={HomeScreen} />
+        <Tab.Screen name="Recettes" component={ExploreScreen} />
+        <Tab.Screen name="Favoris" component={FavoritesScreen} />
+        <Tab.Screen name="Profil" component={ProfileScreen} />
+      </Tab.Navigator>
+      
+      {/* Bottom Sheet pour la création de recette */}
+      <RecipeCreationBottomSheet
+        visible={showRecipeCreationSheet}
+        onClose={() => setShowRecipeCreationSheet(false)}
+        onSubmit={handleRecipeSubmit}
+      />
+    </>
   );
 }
 
 export function AppNavigator() {
-  const { session, loading } = useAuthContext();
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+  const authContext = useAuthContext();
 
-  // Vérifier si l'utilisateur a déjà complété l'onboarding
   useEffect(() => {
-    async function checkOnboardingStatus() {
-      try {
-        const value = await AsyncStorage.getItem('hasCompletedOnboarding');
-        setHasCompletedOnboarding(value === 'true');
-      } catch (error) {
-        console.error('Erreur lors de la vérification du statut d\'onboarding:', error);
-      } finally {
-        setIsInitializing(false);
-      }
-    }
-
     checkOnboardingStatus();
   }, []);
 
-  // Afficher un loader pendant l'initialisation
-  if (loading || isInitializing) {
+  async function checkOnboardingStatus() {
+    try {
+      const value = await AsyncStorage.getItem('@onboarding_complete');
+      setIsOnboardingComplete(value === 'true');
+    } catch (error) {
+      console.log('Erreur lors de la vérification du statut d\'onboarding:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  if (isLoading || authContext.loading) {
     return (
-      <View style={styles.loaderContainer}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
-  // Déterminer l'écran initial
-  // Si l'utilisateur n'est pas connecté, montrer l'onboarding
-  // Si l'utilisateur est connecté et a complété l'onboarding, montrer l'écran principal
-  const initialRouteName = session 
-    ? (hasCompletedOnboarding ? 'Main' : 'Onboarding')
-    : 'Onboarding';
-
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        cardStyle: { backgroundColor: 'white' },
-        headerStyle: {
-          backgroundColor: 'white',
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 0,
-        },
-        headerTitleStyle: {
-          fontWeight: 'bold',
-          fontSize: 18,
-        },
-        headerTintColor: theme.colors.text,
-      }}
-      initialRouteName={initialRouteName}
-    >
-      {/* Écran d'onboarding */}
-      <Stack.Screen 
-        name="Onboarding" 
-        component={OnboardingScreen} 
-        options={{ headerShown: false }}
-      />
-      
-      {/* Écran d'authentification */}
-      <Stack.Screen 
-        name="Auth" 
-        component={AuthScreen} 
-        options={{ headerShown: false }}
-      />
-      
-      {/* Écrans principaux */}
-      <Stack.Screen name="Main" component={MainTabs} />
-      
-      {/* Écrans détaillés */}
-      <Stack.Screen 
-        name="RecipeDetail" 
-        component={RecipeDetailScreen} 
-        options={{ 
-          headerShown: true,
-          headerTitle: '',
-          headerTransparent: true,
-          headerBackTitle: ' ',
-        }}
-      />
-      
-      <Stack.Screen 
-        name="AllRecipes" 
-        component={AllRecipesScreen} 
-        options={{ headerShown: false }}
-      />
-      
-      {/* Écran du mode histoire */}
-      <Stack.Screen 
-        name="StoryMode" 
-        component={StoryModeScreen} 
-        options={{ headerShown: false }}
-      />
-      
-      {/* Carte du monde culinaire */}
-      <Stack.Screen 
-        name="WorldMap" 
-        component={WorldMapScreen} 
-        options={{ headerShown: false }}
-      />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {!authContext.session ? (
+        // Routes non authentifiées
+        <>
+          {!isOnboardingComplete ? (
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          ) : null}
+          <Stack.Screen name="Auth" component={AuthScreen} />
+        </>
+      ) : (
+        // Routes authentifiées
+        <>
+          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen name="RecipeDetails" component={RecipeDetailScreen} />
+          <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
+          <Stack.Screen name="StoryMode" component={StoryModeScreen} />
+          <Stack.Screen name="WorldMap" component={WorldMapScreen} />
+          <Stack.Screen name="RecipeGenerator" component={RecipeGeneratorScreen} />
+          <Stack.Screen name="AllRecipes" component={AllRecipesScreen} />
+          <Stack.Screen name="ShoppingList" component={ShoppingListScreen} />
+          <Stack.Screen name="ShoppingListDetail" component={ShoppingListDetailScreen} />
+          <Stack.Screen name="SavedShoppingLists" component={SavedShoppingListsScreen} />
+          <Stack.Screen name="RecipesList" component={RecipesListScreen} />
+        </>
+      )}
     </Stack.Navigator>
   );
 }

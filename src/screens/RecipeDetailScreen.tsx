@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions, ImageBackground, ActivityIndicator, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Dimensions, ImageBackground, ActivityIndicator, Linking, Alert, StatusBar } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { RecipeDetailScreenRouteProp } from '../types/navigation';
@@ -9,6 +9,7 @@ import { useFavorites } from '../hooks/useFavorites';
 import { Ingredient, Step } from '../types/models';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -19,10 +20,385 @@ export default function RecipeDetailScreen() {
   const { getRecipeDetails } = useRecipes();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { session } = useAuthContext();
+  const insets = useSafeAreaInsets();
   const [recipeDetails, setRecipeDetails] = React.useState<RecipeDetails | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [activeTab, setActiveTab] = React.useState<'ingredients' | 'preparation'>('ingredients');
   const [favoriteLoading, setFavoriteLoading] = React.useState(false);
+
+  // Définir les styles à l'intérieur du composant pour avoir accès à insets
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollViewContent: {
+      paddingBottom: theme.spacing.xl * 2,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.background,
+      paddingTop: insets.top,
+    },
+    loadingText: {
+      fontSize: 16,
+      color: theme.colors.textMuted,
+      marginTop: theme.spacing.md,
+    },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.background,
+      paddingTop: insets.top,
+      paddingHorizontal: theme.spacing.lg,
+    },
+    errorText: {
+      fontSize: 16,
+      color: theme.colors.text,
+      textAlign: 'center',
+      marginBottom: theme.spacing.lg,
+    },
+    retryButton: {
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.lg,
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.borderRadius.full,
+    },
+    retryButtonText: {
+      color: 'white',
+      fontWeight: 'bold',
+    },
+    heroContainer: {
+      height: 320,
+      width: '100%',
+      position: 'relative',
+    },
+    heroImage: {
+      height: '100%',
+      width: '100%',
+      position: 'absolute',
+    },
+    heroOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+      zIndex: 1,
+    },
+    backButton: {
+      position: 'absolute',
+      left: theme.spacing.md,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 10,
+    },
+    favoriteButton: {
+      position: 'absolute',
+      right: theme.spacing.md,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 10,
+    },
+    heroContent: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 2,
+      padding: theme.spacing.lg,
+    },
+    countryTagContainer: {
+      alignSelf: 'flex-start', 
+      marginBottom: theme.spacing.sm,
+      borderRadius: theme.borderRadius.full,
+      overflow: 'hidden',
+    },
+    countryTag: {
+      paddingVertical: theme.spacing.xs,
+      paddingHorizontal: theme.spacing.md,
+      borderRadius: theme.borderRadius.full,
+    },
+    countryText: {
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: 12,
+    },
+    recipeTitle: {
+      fontSize: 32,
+      fontWeight: 'bold',
+      color: 'white',
+      textShadowColor: 'rgba(0, 0, 0, 0.5)',
+      textShadowOffset: { width: 1, height: 1 },
+      textShadowRadius: 5,
+    },
+    contentSection: {
+      padding: theme.spacing.lg,
+    },
+    description: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: theme.colors.text,
+      fontStyle: 'italic',
+    },
+    infoCardsContainer: {
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+      borderRadius: theme.borderRadius.lg,
+      overflow: 'hidden',
+    },
+    infoCards: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      backgroundColor: theme.colors.primary + '10', // 10% opacity
+    },
+    infoCard: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    infoValue: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.primary,
+      marginBottom: theme.spacing.xs,
+    },
+    infoLabel: {
+      fontSize: 12,
+      color: theme.colors.textMuted,
+    },
+    storyModeButton: {
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.xl,
+      borderRadius: theme.borderRadius.lg,
+      overflow: 'hidden',
+      ...theme.shadows.medium,
+    },
+    storyModeBlur: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      backgroundColor: theme.colors.secondary + '80', // 50% opacity
+    },
+    storyModeIcon: {
+      fontSize: 20,
+      marginRight: theme.spacing.sm,
+    },
+    storyModeText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    tabsContainer: {
+      flexDirection: 'row',
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+      borderRadius: theme.borderRadius.full,
+      backgroundColor: theme.colors.card,
+      padding: 4,
+      ...theme.shadows.small,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: theme.spacing.sm,
+      alignItems: 'center',
+      borderRadius: theme.borderRadius.full,
+    },
+    activeTab: {
+      backgroundColor: theme.colors.primary,
+    },
+    tabText: {
+      fontWeight: 'bold',
+      color: theme.colors.textMuted,
+    },
+    activeTabText: {
+      color: 'white',
+    },
+    tabContent: {
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.xl,
+    },
+    ingredientsContainer: {
+      backgroundColor: theme.colors.card,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      ...theme.shadows.small,
+    },
+    ingredientItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    ingredientDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: theme.colors.primary,
+      marginRight: theme.spacing.sm,
+    },
+    ingredient: {
+      fontSize: 16,
+      color: theme.colors.text,
+    },
+    stepsContainer: {
+      backgroundColor: theme.colors.card,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      ...theme.shadows.small,
+    },
+    step: {
+      flexDirection: 'row',
+      marginBottom: theme.spacing.lg,
+    },
+    stepNumberContainer: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: theme.colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: theme.spacing.md,
+      marginTop: 3,
+      ...theme.shadows.small,
+    },
+    stepNumber: {
+      color: 'white',
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    stepContent: {
+      flex: 1,
+    },
+    stepTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    stepDescription: {
+      fontSize: 16,
+      color: theme.colors.textMuted,
+      lineHeight: 22,
+    },
+    sectionHeader: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    wineSection: {
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.xl,
+    },
+    wineCard: {
+      flexDirection: 'row',
+      backgroundColor: theme.colors.primary + '10', // 10% opacity
+      borderRadius: theme.borderRadius.lg,
+      overflow: 'hidden',
+      ...theme.shadows.medium,
+    },
+    wineImage: {
+      width: 100,
+      height: 180,
+    },
+    wineInfo: {
+      flex: 1,
+      padding: theme.spacing.md,
+    },
+    wineName: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    wineOrigin: {
+      fontSize: 14,
+      color: theme.colors.primary,
+      marginBottom: theme.spacing.sm,
+    },
+    wineDescription: {
+      fontSize: 14,
+      color: theme.colors.textMuted,
+      lineHeight: 20,
+      marginBottom: theme.spacing.md,
+    },
+    wineButton: {
+      backgroundColor: theme.colors.primary,
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      borderRadius: theme.borderRadius.full,
+      alignSelf: 'flex-start',
+    },
+    wineButtonText: {
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: 14,
+    },
+    musicSection: {
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.xl,
+    },
+    playlistBackground: {
+      height: 180,
+      borderRadius: theme.borderRadius.lg,
+      overflow: 'hidden',
+      ...theme.shadows.medium,
+    },
+    playlistBackgroundImage: {
+      borderRadius: theme.borderRadius.lg,
+    },
+    playlistCard: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: theme.spacing.lg,
+    },
+    playlistTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: 'white',
+      marginBottom: theme.spacing.sm,
+      textShadowColor: 'rgba(0, 0, 0, 0.5)',
+      textShadowOffset: { width: 1, height: 1 },
+      textShadowRadius: 5,
+    },
+    playlistDescription: {
+      fontSize: 14,
+      color: 'rgba(255, 255, 255, 0.9)',
+      marginBottom: theme.spacing.md,
+      lineHeight: 20,
+    },
+    playlistButton: {
+      backgroundColor: '#1DB954', // Couleur Spotify
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      borderRadius: theme.borderRadius.full,
+      alignSelf: 'flex-start',
+      ...theme.shadows.small,
+    },
+    playlistButtonText: {
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: 14,
+    },
+    bottomSpace: {
+      height: theme.spacing.xl,
+    },
+  });
 
   React.useEffect(() => {
     async function loadRecipeDetails() {
@@ -141,12 +517,15 @@ export default function RecipeDetailScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Statut transparent pour voir l'heure et la batterie */}
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      
       <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
       >
-        {/* Hero Image with Favorite Button */}
+        {/* Hero Image */}
         <View style={styles.heroContainer}>
           <Image 
             source={{ uri: recipe.image_url || 'https://images.unsplash.com/photo-1512058564366-18510be2db19?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80' }} 
@@ -155,8 +534,17 @@ export default function RecipeDetailScreen() {
           
           <View style={styles.heroOverlay} />
           
+          {/* Back button */}
           <TouchableOpacity 
-            style={styles.favoriteButton}
+            style={[styles.backButton, { top: insets.top + 10 }]}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          
+          {/* Favorite button */}
+          <TouchableOpacity 
+            style={[styles.favoriteButton, { top: insets.top + 10 }]}
             onPress={handleToggleFavorite}
             disabled={favoriteLoading}
           >
@@ -165,7 +553,7 @@ export default function RecipeDetailScreen() {
             ) : (
               <Ionicons 
                 name={isRecipeFavorite ? "heart" : "heart-outline"} 
-                size={28} 
+                size={24} 
                 color={isRecipeFavorite ? theme.colors.error : "#fff"} 
               />
             )}
@@ -321,366 +709,4 @@ export default function RecipeDetailScreen() {
       </ScrollView>
     </View>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollViewContent: {
-    paddingBottom: theme.spacing.xl,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-  },
-  loadingText: {
-    marginTop: theme.spacing.md,
-    color: theme.colors.textMuted,
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    padding: theme.spacing.lg,
-  },
-  errorText: {
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-    color: theme.colors.textMuted,
-    fontSize: 16,
-  },
-  retryButton: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  heroContainer: {
-    height: 350,
-    position: 'relative',
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  heroContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: theme.spacing.lg,
-  },
-  countryTagContainer: {
-    alignSelf: 'flex-start',
-    marginBottom: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
-    overflow: 'hidden',
-  },
-  countryTag: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.full,
-  },
-  countryText: {
-    fontSize: 14,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  recipeTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: 'white',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 5,
-  },
-  contentSection: {
-    padding: theme.spacing.lg,
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: theme.colors.text,
-    fontStyle: 'italic',
-  },
-  infoCardsContainer: {
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-  },
-  infoCards: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    backgroundColor: theme.colors.primary + '10', // 10% opacity
-  },
-  infoCard: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  infoValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    marginBottom: theme.spacing.xs,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-  },
-  storyModeButton: {
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    ...theme.shadows.medium,
-  },
-  storyModeBlur: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    backgroundColor: theme.colors.secondary + '80', // 50% opacity
-  },
-  storyModeIcon: {
-    fontSize: 20,
-    marginRight: theme.spacing.sm,
-  },
-  storyModeText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.card,
-    padding: 4,
-    ...theme.shadows.small,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: theme.spacing.sm,
-    alignItems: 'center',
-    borderRadius: theme.borderRadius.full,
-  },
-  activeTab: {
-    backgroundColor: theme.colors.primary,
-  },
-  tabText: {
-    fontWeight: 'bold',
-    color: theme.colors.textMuted,
-  },
-  activeTabText: {
-    color: 'white',
-  },
-  tabContent: {
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
-  },
-  ingredientsContainer: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    ...theme.shadows.small,
-  },
-  ingredientItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  ingredientDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.primary,
-    marginRight: theme.spacing.sm,
-  },
-  ingredient: {
-    fontSize: 16,
-    color: theme.colors.text,
-  },
-  stepsContainer: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    ...theme.shadows.small,
-  },
-  step: {
-    flexDirection: 'row',
-    marginBottom: theme.spacing.lg,
-  },
-  stepNumberContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: theme.spacing.md,
-    marginTop: 3,
-    ...theme.shadows.small,
-  },
-  stepNumber: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  stepContent: {
-    flex: 1,
-  },
-  stepTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
-  },
-  stepDescription: {
-    fontSize: 16,
-    color: theme.colors.textMuted,
-    lineHeight: 22,
-  },
-  sectionHeader: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
-    textAlign: 'center',
-  },
-  wineSection: {
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
-  },
-  wineCard: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.primary + '10', // 10% opacity
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    ...theme.shadows.medium,
-  },
-  wineImage: {
-    width: 100,
-    height: 180,
-  },
-  wineInfo: {
-    flex: 1,
-    padding: theme.spacing.md,
-  },
-  wineName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-    marginBottom: theme.spacing.xs,
-  },
-  wineOrigin: {
-    fontSize: 14,
-    color: theme.colors.primary,
-    marginBottom: theme.spacing.sm,
-  },
-  wineDescription: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    lineHeight: 20,
-    marginBottom: theme.spacing.md,
-  },
-  wineButton: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
-    alignSelf: 'flex-start',
-  },
-  wineButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  musicSection: {
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
-  },
-  playlistBackground: {
-    height: 180,
-    borderRadius: theme.borderRadius.lg,
-    overflow: 'hidden',
-    ...theme.shadows.medium,
-  },
-  playlistBackgroundImage: {
-    borderRadius: theme.borderRadius.lg,
-  },
-  playlistCard: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: theme.spacing.lg,
-  },
-  playlistTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: theme.spacing.sm,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 5,
-  },
-  playlistDescription: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: theme.spacing.md,
-    lineHeight: 20,
-  },
-  playlistButton: {
-    backgroundColor: '#1DB954', // Couleur Spotify
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
-    alignSelf: 'flex-start',
-    ...theme.shadows.small,
-  },
-  playlistButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  bottomSpace: {
-    height: theme.spacing.xl,
-  },
-  favoriteButton: {
-    position: 'absolute',
-    top: theme.spacing.md,
-    right: theme.spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-}); 
+} 

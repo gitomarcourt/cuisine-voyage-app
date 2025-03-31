@@ -16,7 +16,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "LSApplicationQueriesSchemes": ["spotify"]
-      }
+      },
+      "bundleIdentifier": "com.kolorstudio.cuisinevoyage"
     },
     "android": {
       "adaptiveIcon": {
@@ -33,10 +34,33 @@
           ],
           "category": ["BROWSABLE", "DEFAULT"]
         }
-      ]
+      ],
+      "package": "com.kolorstudio.cuisinevoyage"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "fb1a24e3-0e16-4132-9da1-ab41dd61e530"
+      }
+    },
+    "owner": "kolorstudio",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fb1a24e3-0e16-4132-9da1-ab41dd61e530"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/notification-sound.wav"]
+        }
+      ]
+    ]
   }
 }
