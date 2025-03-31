@@ -146,7 +146,8 @@ export default function ShoppingListScreen() {
           name: listName,
           total_recipes: shoppingList.total_recipes,
           servings: shoppingList.servings,
-          recipe_ids: JSON.stringify(recipeIds)
+          recipe_ids: JSON.stringify(recipeIds),
+          total_estimated_price: shoppingList.total_estimated_price
         })
         .select('id')
         .single();
