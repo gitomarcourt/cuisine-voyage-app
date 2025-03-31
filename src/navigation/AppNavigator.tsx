@@ -90,10 +90,12 @@ export type RootStackParamList = {
           quantity: string;
           unit: string;
           category?: string;
+          estimated_price?: number;
         }>
       }>;
       total_recipes: number;
       servings: number;
+      total_estimated_price?: number;
     };
     recipeIds: number[];
   };
@@ -108,10 +110,12 @@ export type RootStackParamList = {
           quantity: string;
           unit: string;
           is_checked: boolean;
+          estimated_price?: number;
         }>
       }>;
       total_recipes: number;
       servings: number;
+      total_estimated_price?: number;
     };
     shoppingListId: number;
     recipeIds: number[];

@@ -23,6 +23,7 @@ interface ShoppingList {
   total_recipes: number;
   servings: number;
   created_at: string;
+  total_estimated_price?: number;
 }
 
 export default function SavedShoppingListsScreen() {
@@ -112,7 +113,7 @@ export default function SavedShoppingListsScreen() {
           // Récupérer les détails de la liste
           const { data: listData, error: listError } = await supabase
             .from('shopping_lists')
-            .select('id, name, total_recipes, servings, recipe_ids')
+            .select('id, name, total_recipes, servings, recipe_ids, total_estimated_price')
             .eq('id', item.id)
             .single();
 
@@ -160,7 +161,8 @@ export default function SavedShoppingListsScreen() {
           const formattedShoppingList = {
             ingredients: groupedIngredients,
             total_recipes: listData.total_recipes,
-            servings: listData.servings
+            servings: listData.servings,
+            total_estimated_price: listData.total_estimated_price
           };
 
           // Convertir la chaîne recipe_ids en tableau de nombres
@@ -195,6 +197,12 @@ export default function SavedShoppingListsScreen() {
             <Ionicons name="people" size={14} color={theme.colors.textMuted} />
             <Text style={styles.listInfo}>{item.servings} pers.</Text>
           </View>
+          {item.total_estimated_price && (
+            <View style={styles.infoItem}>
+              <Ionicons name="pricetag" size={14} color={theme.colors.textMuted} />
+              <Text style={styles.listInfo}>{item.total_estimated_price.toFixed(2)} €</Text>
+            </View>
+          )}
           <View style={styles.infoItem}>
             <Ionicons name="calendar" size={14} color={theme.colors.textMuted} />
             <Text style={styles.listInfo}>{new Date(item.created_at).toLocaleDateString()}</Text>

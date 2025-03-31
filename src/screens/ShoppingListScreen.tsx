@@ -27,6 +27,26 @@ import { AuthContextType } from '../types/auth';
 
 type ShoppingListScreenRouteProp = RouteProp<RootStackParamList, 'ShoppingList'>;
 
+interface ShoppingListItem {
+  name: string;
+  quantity: string;
+  unit: string;
+  category?: string;
+  estimated_price?: number;
+}
+
+interface CategoryGroup {
+  category: string;
+  items: ShoppingListItem[];
+}
+
+interface ShoppingListData {
+  ingredients: CategoryGroup[];
+  total_recipes: number;
+  servings: number;
+  total_estimated_price?: number;
+}
+
 type AnimatedValuesType = {
   [key: string]: Animated.Value;
 };
@@ -246,6 +266,7 @@ export default function ShoppingListScreen() {
           <Text style={styles.headerTitle}>Liste de courses</Text>
           <Text style={styles.headerSubtitle}>
             {shoppingList.total_recipes} recettes • {shoppingList.servings} personnes
+            {shoppingList.total_estimated_price ? ` • ${shoppingList.total_estimated_price.toFixed(2)} €` : ''}
           </Text>
         </View>
         <TouchableOpacity 
